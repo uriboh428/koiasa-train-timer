@@ -225,3 +225,79 @@ def get_routes(
     else:
         depts = find_next_departures_list(KITA_ASAKADAI_MUSASHINO_DOWN, search_time, 3)
         return [calculate_asakadai_to_koigakubo(d, pace, now) for d in depts]
+
+def get_last_train_info(
+    direction: str, now: Optional[datetime.datetime] = None
+) -> Dict[str, Any]:
+    """本日の終電案内およびカウントダウン情報を取得"""
+    if now is None:
+        now = datetime.datetime.now()
+
+    if direction == "koigakubo_to_asakadai":
+        # 恋ヶ窪発 朝霞台行 最終接続便: 恋ヶ窪 00:03 発 ➡ 朝霞台 00:45 着
+        # 0:03 発は日付としては「翌日未明」
+        # 当日 05:00 〜 23:59 の場合、終電は翌日 00:03
+        # 当日 00:00 〜 00:03 の場合、終電は当日 00:03
+        # 当日 00:04 〜 04:59 の場合、当日の終電は運行終了
+        base_date = now.date()
+        if now.hour < 5:
+            # 0時〜4時台
+            last_dept_dt = now.replace(hour=0, minute=3, second=0, microsecond=0)
+            if now > last_dept_dt:
+                is_expired = True
+                seconds_left = 0
+            else:
+                is_expired = False
+                seconds_left = int((last_dept_dt - now).total_seconds())
+        else:
+            # 5時〜23時台
+            tomorrow = base_date + datetime.timedelta(days=1)
+            last_dept_dt = datetime.datetime.combine(tomorrow, datetime.time(0, 3))
+            if now.tzinfo:
+                last_dept_dt = last_dept_dt.replace(tzinfo=now.tzinfo)
+            is_expired = False
+            seconds_left = int((last_dept_dt - now).total_seconds())
+
+        return {
+            "direction": "koigakubo_to_asakadai",
+            "departure_station": "恋ヶ窪",
+            "destination_station": "朝霞台",
+            "departure_time": "00:03",
+            "arrival_time": "00:45",
+            "total_minutes": 42,
+            "seconds_until_last_train": seconds_left,
+            "is_expired": is_expired,
+            "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 朝霞台 00:45",
+            "first_train_time": "05:12",
+        }
+    else:
+        # 朝霞台発 恋ヶ窪行 最終接続便: 北朝霞(朝霞台) 23:45 発 ➡ 恋ヶ窪 00:34 着
+        # 当日 05:00 〜 23:45 の場合、終電は当日 23:45
+        # 当日 23:46 〜 翌 04:59 の場合、運行終了
+        base_date = now.date()
+        if now.hour < 5:
+            # 0時〜4時台（昨晩の終電は終了済み）
+            is_expired = True
+            seconds_left = 0
+        else:
+            last_dept_dt = now.replace(hour=23, minute=45, second=0, microsecond=0)
+            if now > last_dept_dt:
+                is_expired = True
+                seconds_left = 0
+            else:
+                is_expired = False
+                seconds_left = int((last_dept_dt - now).total_seconds())
+
+        return {
+            "direction": "asakadai_to_koigakubo",
+            "departure_station": "朝霞台",
+            "destination_station": "恋ヶ窪",
+            "departure_time": "23:45",
+            "arrival_time": "00:34",
+            "total_minutes": 49,
+            "seconds_until_last_train": seconds_left,
+            "is_expired": is_expired,
+            "route_summary": "朝霞台 23:45 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
+            "first_train_time": "05:14",
+        }
+
