@@ -2,7 +2,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests Passing](https://img.shields.io/badge/tests-16%2F16%20passing-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen.svg)]()
+[![Privacy](https://img.shields.io/badge/Access-PIN%20Code%20Protected-059669.svg)]()
 [![Revision Detector](https://img.shields.io/badge/Timetable%20Revision-Auto%20Detected-blueviolet.svg)]()
 [![Design](https://img.shields.io/badge/Design-Ocean%20Blue%20%26%20Material%20Icons-0071A4.svg)]()
 [![Security](https://img.shields.io/badge/Security-XSS%20%26%20XSRF%20Protected-059669.svg)]()
