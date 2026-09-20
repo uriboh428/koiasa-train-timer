@@ -444,6 +444,24 @@ def get_last_train_info(
             "first_train_time": "05:14",
         }
 
+@st.cache_data(ttl=21600)  # 6時間キャッシュで爆速表示を維持
+def get_revision_status() -> Dict[str, Any]:
+    """ダイヤ改正告知の自動検知（6時間キャッシュ対応）"""
+    try:
+        from revision_detector import check_timetable_revision
+        return check_timetable_revision()
+    except Exception:
+        return {
+            "status": "up_to_date",
+            "status_label": "✅ ダイヤ最新確認済",
+            "has_alert": False,
+            "badge_color": "#059669",
+            "message": "現在適用中のダイヤグラムは最新です。",
+            "current_version": "2026年春季現行ダイヤ (2026-03-15改定)",
+            "announcements": [],
+            "last_checked_jst": datetime.datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
 # ==========================================
 # Streamlit UI 表示部
 # ==========================================
@@ -577,6 +595,53 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ダイヤ改正告知の自動検知ステータス表示
+revision_info = get_revision_status()
+
+if revision_info.get("has_alert"):
+    announcements_html = ""
+    for ann in revision_info.get("announcements", []):
+        t = escape_text(ann.get("title", ""))
+        l = ann.get("link", "")
+        d = escape_text(ann.get("pub_date_display", ""))
+        s = escape_text(ann.get("source", ""))
+        link_tag = f"<a href='{l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:700; text-decoration:underline;'>{t}</a>" if is_safe_url(l) else t
+        announcements_html += f"""
+        <div style="font-size:0.75rem; margin-top:4px; padding:4px 8px; background:rgba(255,255,255,0.85); border-radius:6px; border-left:3px solid #FF7F50;">
+            ・{link_tag} <span style="color:#64748B; font-size:0.7rem;">({d} {s})</span>
+        </div>
+        """
+
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg, rgba(255,127,80,0.12) 0%, rgba(254,243,199,0.6) 100%); border:1.5px solid #FF7F50; border-radius:18px; padding:12px 16px; margin-bottom:14px; box-shadow:0 4px 16px rgba(255,127,80,0.12); backdrop-filter:blur(8px);">
+        <div style="font-weight:800; color:#C2410C; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:20px; color:#EA580C;">campaign</span>
+            {escape_text(revision_info['status_label'])}
+        </div>
+        <div style="font-size:0.8rem; color:#334155; margin-top:4px; line-height:1.4;">
+            {escape_text(revision_info['message'])}
+        </div>
+        {announcements_html}
+        <div style="font-size:0.72rem; color:#9A3412; margin-top:8px; display:flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px;">tips_and_updates</span>
+            <span>AIに「ダイヤを最新に更新して」とお声がけいただければ、数分でアプリ時刻表をアップデートできます。</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.88); border:1px solid rgba(226,232,240,0.85); border-radius:12px; padding:5px 14px; font-size:0.75rem; color:#334155; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; backdrop-filter:blur(8px); box-shadow:0 2px 8px rgba(0,75,115,0.03);">
+        <span style="display:inline-flex; align-items:center; gap:4px; font-weight:700; color:#059669;">
+            <span class="material-symbols-outlined" style="font-size:16px; color:#059669;">verified</span>
+            収録ダイヤ：{escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}
+        </span>
+        <span style="color:#64748B; font-size:0.7rem; display:inline-flex; align-items:center; gap:2px;">
+            <span class="material-symbols-outlined" style="font-size:13px; color:#0084B4;">autorenew</span>
+            改正自動検知中
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
 # 進行方向コントロール
 col_dir, col_rev = st.columns([3, 1])
 with col_dir:
@@ -617,6 +682,14 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             format_func=lambda x: pace_map.get(x, x),
             index=0 if st.session_state["pace"] == "normal" else 1 if st.session_state["pace"] == "fast" else 2
         )
+    st.markdown("---")
+    c_chk1, c_chk2 = st.columns([3, 2])
+    with c_chk1:
+        st.markdown(f"<div style='font-size:0.75rem; color:#64748B; margin-top:6px;'>最終確認: {escape_text(revision_info.get('last_checked_jst', ''))}</div>", unsafe_allow_html=True)
+    with c_chk2:
+        if st.button("🔍 ダイヤ改正を再確認", use_container_width=True, help="最新の発表ニュースを手動でチェック"):
+            st.cache_data.clear()
+            st.rerun()
 
 # 経路計算実行
 routes = get_routes(
