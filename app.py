@@ -517,33 +517,33 @@ st.markdown("""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       Goodpatch Neo-Tokyo Metro Design System (Ver 3.7)
-       Human-Centered Design / Apple HIG & Linear Precision Spec
+       European Sunrise & Sunflower Design System (Ver 3.8 - Aube Solaire & Tournesol)
+       Warm Modernism / European Human-Centered Spec (Copenhagen & Provence Sunrise)
        ========================================================================== */
     :root {
-        --bg-base: #F8FAFC;
+        --bg-base: #FDFBF7;
         --surface-card: #FFFFFF;
-        --surface-hero: linear-gradient(145deg, #06152B 0%, #0A223E 55%, #02385C 100%);
-        --surface-glass: rgba(255, 255, 255, 0.07);
-        --border-subtle: #E2E8F0;
-        --border-card: #CBD5E1;
-        --border-glass: rgba(255, 255, 255, 0.14);
-        --text-primary: #0F172A;
-        --text-secondary: #475569;
-        --text-muted: #64748B;
-        --text-light: #94A3B8;
-        --accent-ocean: #0284C7;
-        --accent-cyan: #38BDF8;
+        --surface-hero: linear-gradient(145deg, #431407 0%, #7C2D12 38%, #9A3412 72%, #C2410C 100%);
+        --surface-glass: rgba(255, 255, 255, 0.10);
+        --border-subtle: #F3E8D6;
+        --border-card: #EADBC8;
+        --border-glass: rgba(254, 240, 138, 0.25);
+        --text-primary: #1C1917;
+        --text-secondary: #57534E;
+        --text-muted: #78716C;
+        --text-light: #A8A29E;
+        --accent-sun-orange: #EA580C;
+        --accent-sun-amber: #F59E0B;
+        --accent-sun-gold: #FBBF24;
         --accent-emerald: #10B981;
-        --accent-amber: #F59E0B;
         --accent-rose: #EF4444;
         --radius-sm: 8px;
         --radius-md: 12px;
         --radius-lg: 16px;
         --radius-xl: 20px;
-        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-        --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.02);
-        --shadow-hero: 0 12px 32px -4px rgba(2, 48, 80, 0.38), 0 4px 12px rgba(6, 21, 43, 0.2);
+        --shadow-sm: 0 1px 3px rgba(67, 20, 7, 0.04);
+        --shadow-md: 0 4px 14px -2px rgba(67, 20, 7, 0.06), 0 2px 4px rgba(67, 20, 7, 0.02);
+        --shadow-hero: 0 14px 36px -4px rgba(154, 52, 18, 0.35), 0 6px 14px rgba(67, 20, 7, 0.22);
     }
 
     html, body, [class*="css"] {
@@ -586,7 +586,7 @@ st.markdown("""
         align-items: center;
         padding: 4px 2px 8px 2px;
         margin-bottom: 4px;
-        border-bottom: 1px solid #E2E8F0;
+        border-bottom: 1px solid #F3E8D6;
     }
     .brand-block {
         display: flex;
@@ -594,16 +594,16 @@ st.markdown("""
         gap: 8px;
     }
     .brand-logo-badge {
-        background: linear-gradient(135deg, #003350 0%, #004B73 100%);
+        background: linear-gradient(135deg, #EA580C 0%, #F97316 45%, #FBBF24 100%);
         color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 9px;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
-        box-shadow: 0 2px 6px rgba(0, 75, 115, 0.25);
+        font-size: 17px;
+        box-shadow: 0 2px 8px rgba(234, 88, 12, 0.32);
     }
     .brand-text-group {
         display: flex;
@@ -612,14 +612,14 @@ st.markdown("""
     .brand-name {
         font-size: 0.98rem;
         font-weight: 800;
-        color: #0F172A;
+        color: #1C1917;
         letter-spacing: -0.02em;
         line-height: 1.15;
     }
     .brand-sub {
         font-size: 0.6rem;
         font-weight: 700;
-        color: #64748B;
+        color: #9A3412;
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
@@ -633,17 +633,17 @@ st.markdown("""
         align-items: center;
         gap: 5px;
         background: #FFFFFF;
-        border: 1px solid #E2E8F0;
+        border: 1px solid #F3E8D6;
         padding: 3px 8px;
         border-radius: 9999px;
         box-shadow: var(--shadow-sm);
     }
     .pulse-dot {
-        width: 6px;
-        height: 6px;
-        background-color: var(--accent-emerald);
+        width: 7px;
+        height: 7px;
+        background-color: #F59E0B;
         border-radius: 9999px;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
         animation: pulse-glow 2s infinite ease-in-out;
     }
     @keyframes pulse-glow {
@@ -655,58 +655,58 @@ st.markdown("""
         font-variant-numeric: tabular-nums;
         font-size: 0.72rem;
         font-weight: 600;
-        color: #334155;
+        color: #44403C;
     }
     .version-tag {
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.65rem;
         font-weight: 700;
-        color: #15803D;
-        background: #DCFCE7;
-        border: 1px solid #86EFAC;
-        padding: 2px 6px;
+        color: #9A3412;
+        background: #FEF3C7;
+        border: 1px solid #FCD34D;
+        padding: 2px 7px;
         border-radius: 6px;
     }
 
-    /* 2. 行き先切り替え（Apple HIG 48px タップターゲット & セグメンテッドUI） */
+    /* 2. 行き先切り替え（Apple HIG 48px タップターゲット & 朝日サンバーストUI） */
     .stButton > button {
         border-radius: 14px !important;
         font-weight: 700 !important;
         font-size: 0.88rem !important;
         min-height: 48px !important;
         padding: 8px 10px !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #EADBC8 !important;
         background: #FFFFFF !important;
-        color: #334155 !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+        color: #44403C !important;
+        box-shadow: 0 1px 3px rgba(67, 20, 7, 0.04) !important;
         transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
         white-space: pre-line !important;
         line-height: 1.25 !important;
     }
     .stButton > button:hover {
-        background: #F8FAFC !important;
-        color: #0F172A !important;
-        border-color: #CBD5E1 !important;
+        background: #FFFDF9 !important;
+        color: #1C1917 !important;
+        border-color: #FBBF24 !important;
         transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.06) !important;
+        box-shadow: 0 3px 10px rgba(245, 158, 11, 0.12) !important;
     }
     .stButton > button:active {
         transform: translateY(1px);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+        box-shadow: 0 1px 2px rgba(67, 20, 7, 0.04) !important;
     }
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #004B73 0%, #003350 100%) !important;
+        background: linear-gradient(135deg, #EA580C 0%, #F97316 48%, #FBBF24 100%) !important;
         color: #FFFFFF !important;
-        border-color: #002A44 !important;
-        box-shadow: 0 4px 12px rgba(0, 75, 115, 0.28) !important;
+        border-color: #C2410C !important;
+        box-shadow: 0 4px 14px rgba(234, 88, 12, 0.34) !important;
     }
     .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #003859 0%, #002238 100%) !important;
-        border-color: #001A2C !important;
-        box-shadow: 0 6px 16px rgba(0, 75, 115, 0.35) !important;
+        background: linear-gradient(135deg, #C2410C 0%, #EA580C 48%, #F59E0B 100%) !important;
+        border-color: #9A3412 !important;
+        box-shadow: 0 6px 18px rgba(234, 88, 12, 0.42) !important;
     }
 
-    /* 3. ヒーロー・カウントダウンカード（Frosted Deep Ocean） */
+    /* 3. ヒーロー・カウントダウンカード（Sunrise Dawn & Sunflower Glow） */
     .hero-timer-card {
         background: var(--surface-hero);
         color: #FFFFFF;
@@ -724,8 +724,8 @@ st.markdown("""
         top: 0;
         left: 0;
         right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%);
+        height: 1.5px;
+        background: linear-gradient(90deg, rgba(251,191,36,0) 0%, rgba(251,191,36,0.6) 50%, rgba(251,191,36,0) 100%);
     }
     .hero-timer-header {
         display: flex;
@@ -736,7 +736,7 @@ st.markdown("""
     .hero-micro-label {
         font-size: 0.68rem;
         font-weight: 700;
-        color: var(--text-light);
+        color: #FED7AA;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         display: flex;
@@ -753,9 +753,9 @@ st.markdown("""
         transition: all 0.2s ease;
     }
     .badge-normal {
-        background: rgba(255, 255, 255, 0.12);
-        color: #E2E8F0;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(254, 240, 138, 0.18);
+        color: #FEF08A;
+        border: 1px solid rgba(254, 240, 138, 0.35);
     }
     .badge-urgent {
         background: var(--accent-rose);
@@ -764,8 +764,8 @@ st.markdown("""
         animation: urgent-pulse 1.2s infinite;
     }
     .badge-departed {
-        background: #475569;
-        color: #E2E8F0;
+        background: #78716C;
+        color: #F5F5F4;
     }
     @keyframes urgent-pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
@@ -784,12 +784,12 @@ st.markdown("""
         line-height: 1.0;
         letter-spacing: -0.04em;
         color: #FFFFFF;
-        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+        text-shadow: 0 2px 14px rgba(67, 20, 7, 0.55);
     }
     .hero-digits .unit {
         font-size: 1.1rem;
         font-weight: 600;
-        color: #94A3B8;
+        color: #FED7AA;
         margin: 0 4px 0 1px;
     }
 
@@ -801,7 +801,7 @@ st.markdown("""
         background: var(--surface-glass);
         border-radius: var(--radius-md);
         padding: 8px 14px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(254, 240, 138, 0.18);
         margin-top: 4px;
         backdrop-filter: blur(8px);
     }
@@ -811,7 +811,7 @@ st.markdown("""
     }
     .hero-st-name {
         font-size: 0.78rem;
-        color: #94A3B8;
+        color: #FED7AA;
         font-weight: 600;
         letter-spacing: 0.02em;
     }
@@ -820,11 +820,11 @@ st.markdown("""
         font-variant-numeric: tabular-nums;
         font-size: 1.35rem;
         font-weight: 800;
-        color: #F8FAFC;
+        color: #FFFFFF;
         line-height: 1.15;
     }
     .hero-st-time.arrival {
-        color: var(--accent-cyan);
+        color: #FEF08A;
     }
     .hero-arrow-block {
         display: flex;
@@ -835,9 +835,9 @@ st.markdown("""
     .hero-duration-badge {
         font-size: 0.72rem;
         font-weight: 700;
-        color: #E2E8F0;
-        background: rgba(56, 189, 248, 0.2);
-        border: 1px solid rgba(56, 189, 248, 0.4);
+        color: #FEF08A;
+        background: rgba(251, 191, 36, 0.22);
+        border: 1px solid rgba(251, 191, 36, 0.45);
         padding: 2px 8px;
         border-radius: 9999px;
     }
@@ -845,16 +845,16 @@ st.markdown("""
     /* 終電案内行 */
     .hero-last-train-row {
         font-size: 0.72rem;
-        color: #94A3B8;
+        color: #FED7AA;
         margin-top: 8px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 4px 2px 0 2px;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-top: 1px solid rgba(254, 240, 138, 0.15);
     }
 
-    /* 4. 統合メトロ・タイムラインボード (Clean Metro White Card) */
+    /* 4. 統合メトロ・タイムラインボード (Clean Sunflower White Card) */
     .metro-board {
         background: var(--surface-card);
         border: 1px solid var(--border-subtle);
@@ -873,7 +873,7 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid #F1F5F9;
+        border-bottom: 1px solid #FAF6EE;
         padding-bottom: 6px;
     }
 
@@ -889,12 +889,12 @@ st.markdown("""
     div[data-testid="stExpander"] details summary {
         font-weight: 700 !important;
         font-size: 0.85rem !important;
-        color: #334155 !important;
+        color: #44403C !important;
         padding: 12px 16px !important;
         transition: background 0.15s;
     }
     div[data-testid="stExpander"] details summary:hover {
-        background: #F8FAFC !important;
+        background: #FFFDF9 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -911,21 +911,21 @@ credentials = load_auth_credentials()
 if credentials is None:
     st.markdown("""
     <div style="text-align:center; padding: 24px 16px 12px 16px;">
-        <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
-            <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">shield_person</span>
+        <div style="background:linear-gradient(135deg, #EA580C 0%, #F97316 50%, #FBBF24 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 18px rgba(234,88,12,0.3);">
+            <span class="material-symbols-outlined" style="font-size:32px; color:#FEF08A;">shield_person</span>
         </div>
-        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">初期セキュリティ設定</h2>
-        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">本アプリはプライベート利用専用です。<br>ご利用を開始する前に、安全なパスワード（4文字以上）を設定してください。</p>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#9A3412; margin:0 0 6px 0;">初期セキュリティ設定</h2>
+        <p style="font-size:0.8rem; color:#78716C; margin:0 0 16px 0;">本アプリはプライベート利用専用です。<br>ご利用を開始する前に、安全なパスワード（4文字以上）を設定してください。</p>
     </div>
     """, unsafe_allow_html=True)
 
     with st.form("setup_password_form", clear_on_submit=False):
-        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#004B73; margin-bottom:2px;'>① 一般ログインパスワード（ご家族用）</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#9A3412; margin-bottom:2px;'>① 一般ログインパスワード（ご家族用）</div>", unsafe_allow_html=True)
         setup_user_pass = st.text_input("ご家族向けログインパスワード（4文字以上）", type="password", placeholder="例: 家族で共有するパスワード")
         setup_user_confirm = st.text_input("ご家族向けログインパスワード（再入力）", type="password", placeholder="同じパスワードを再入力")
 
-        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#004B73; margin:12px 0 2px 0;'>② 管理者用マスターパスワード（管理者様専用）</div>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.72rem; color:#64748B; margin:0 0 4px 0;'>※設定変更やURL再発行を行うための専用パスワードです。未入力の場合は上記一般パスワードと同じになります。</p>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#9A3412; margin:12px 0 2px 0;'>② 管理者用マスターパスワード（管理者様専用）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem; color:#78716C; margin:0 0 4px 0;'>※設定変更やURL再発行を行うための専用パスワードです。未入力の場合は上記一般パスワードと同じになります。</p>", unsafe_allow_html=True)
         setup_admin_pass = st.text_input("管理者専用パスワード（4文字以上・任意）", type="password", placeholder="管理者専用パスワード（省略可）")
 
         setup_submit = st.form_submit_button("パスワードを登録して起動 🔒", use_container_width=True, type="primary")
@@ -949,7 +949,7 @@ if credentials is None:
                     st.error("❌ パスワードの保存に失敗しました。ファイル書き込み権限をご確認ください。")
 
     st.markdown("""
-    <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#94A3B8;">
+    <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#A8A29E;">
         🔒 Private Transit Security System © 2026
     </div>
     """, unsafe_allow_html=True)
@@ -977,12 +977,12 @@ if not st.session_state["authenticated"]:
 
     st.markdown("""
     <div style="text-align:center; padding: 24px 16px 12px 16px;">
-        <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
-            <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
+        <div style="background:linear-gradient(135deg, #EA580C 0%, #F97316 50%, #FBBF24 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 18px rgba(234,88,12,0.3);">
+            <span class="material-symbols-outlined" style="font-size:32px; color:#FEF08A;">lock</span>
         </div>
-        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.7 (ログイン・管理者パスワード完全分離版)</div>
-        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#9A3412; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
+        <div style="display:inline-block; background:#FEF3C7; border:1px solid #FCD34D; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#9A3412; margin-bottom:10px;">Ver 3.8 (朝日＆ひまわり・欧州サンシャインデザイン版)</div>
+        <p style="font-size:0.8rem; color:#78716C; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1022,7 +1022,7 @@ if not st.session_state["authenticated"]:
                     st.error(f"❌ パスワードが違います。（残り試行可能回数: {remain_tries}回）")
 
     st.markdown("""
-    <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#94A3B8;">
+    <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#A8A29E;">
         🔒 Private Transit Dashboard © 2026
     </div>
     """, unsafe_allow_html=True)
@@ -1060,7 +1060,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">Ver 3.7 (ログイン・管理者パスワード完全分離版)</span>
+        <span class="version-tag">Ver 3.8 (朝日＆ひまわり・欧州サンシャインデザイン版)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1237,10 +1237,10 @@ metro_html = """
 <div class="metro-board">
     <div class="metro-board-header">
         <span style="display:flex; align-items:center; gap:6px;">
-            <span class="material-symbols-outlined" style="font-size:16px; color:#0284C7;">route</span>
-            <span>乗換ルート詳細</span>
+            <span class="material-symbols-outlined" style="font-size:16px; color:#EA580C;">route</span>
+            <span style="color:#1C1917; font-weight:800;">乗換ルート詳細</span>
         </span>
-        <span style="font-size:0.65rem; color:#64748B; font-weight:700; background:#F1F5F9; padding:2px 8px; border-radius:12px;">3区間 / 乗換2回</span>
+        <span style="font-size:0.65rem; color:#78716C; font-weight:700; background:#FAF6EE; padding:2px 8px; border-radius:12px; border:1px solid #F3E8D6;">3区間 / 乗換2回</span>
     </div>
 """
 
@@ -1261,11 +1261,11 @@ for idx, leg in enumerate(current_route["legs"]):
     metro_html += f"""
 <div style="display:flex; align-items:center; justify-content:space-between; padding: 3px 0;">
     <div style="display:flex; align-items:center; gap:8px;">
-        <div style="width:12px; height:12px; border-radius:9999px; border:3px solid {color}; background:#FFFFFF; flex-shrink:0; box-shadow:0 0 0 2px rgba(0,0,0,0.04);"></div>
-        <div style="font-size:0.92rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">{from_st}</div>
-        <div style="font-size:0.68rem; color:#475569; background:#F1F5F9; border:1px solid #E2E8F0; padding:1px 6px; border-radius:6px; font-weight:600;">{platform}</div>
+        <div style="width:12px; height:12px; border-radius:9999px; border:3px solid {color}; background:#FFFFFF; flex-shrink:0; box-shadow:0 0 0 2px rgba(67,20,7,0.04);"></div>
+        <div style="font-size:0.92rem; font-weight:800; color:#1C1917; letter-spacing:-0.01em;">{from_st}</div>
+        <div style="font-size:0.68rem; color:#57534E; background:#FAF6EE; border:1px solid #F3E8D6; padding:1px 6px; border-radius:6px; font-weight:600;">{platform}</div>
     </div>
-    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.95rem; font-weight:800; color:#0F172A;">
+    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.95rem; font-weight:800; color:#1C1917;">
         {f_time}
     </div>
 </div>
@@ -1274,10 +1274,10 @@ for idx, leg in enumerate(current_route["legs"]):
     # レール（移動区間）
     metro_html += f"""
 <div style="display:flex; align-items:center; justify-content:space-between; margin-left:5px; padding: 4px 0 4px 15px; border-left: 2.5px solid {color};">
-    <div style="font-size:0.76rem; color:#334155; font-weight:600; display:flex; align-items:center; gap:5px;">
+    <div style="font-size:0.76rem; color:#44403C; font-weight:600; display:flex; align-items:center; gap:5px;">
         <span style="color:{color}; font-size:0.7rem;">●</span>
         <span>{line_name}</span>
-        <span style="color:#94A3B8; font-weight:500; font-size:0.72rem;">({dest})</span>
+        <span style="color:#A8A29E; font-weight:500; font-size:0.72rem;">({dest})</span>
     </div>
     <div style="font-size:0.7rem; font-weight:700; color:{color}; background:rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.04); padding:1.5px 7px; border-radius:6px;">
         {duration}分
@@ -1291,7 +1291,7 @@ for idx, leg in enumerate(current_route["legs"]):
 <div style="display:flex; align-items:center; justify-content:space-between; padding: 3px 0;">
     <div style="display:flex; align-items:center; gap:8px;">
         <div style="width:12px; height:12px; border-radius:9999px; border:3px solid #059669; background:#059669; flex-shrink:0; box-shadow:0 0 0 2px rgba(5,150,105,0.2);"></div>
-        <div style="font-size:0.92rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">{to_st}</div>
+        <div style="font-size:0.92rem; font-weight:800; color:#1C1917; letter-spacing:-0.01em;">{to_st}</div>
         <div style="font-size:0.68rem; color:#059669; background:#ECFDF5; border:1px solid #A7F3D0; padding:1px 6px; border-radius:6px; font-weight:700;">到着</div>
     </div>
     <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.98rem; font-weight:800; color:#059669;">
@@ -1303,12 +1303,12 @@ for idx, leg in enumerate(current_route["legs"]):
         # 乗換待ち時間コネクタ
         badge_text = "スムーズ接続" if wait_m <= 4 else f"待 {wait_m}分"
         metro_html += f"""
-<div style="display:flex; align-items:center; justify-content:space-between; margin-left:5px; padding: 4px 0 4px 15px; border-left: 2px dashed #CBD5E1; font-size:0.72rem;">
-    <span style="color:#64748B; font-weight:600; display:flex; align-items:center; gap:3px;">
-        <span class="material-symbols-outlined" style="font-size:14px; color:#94A3B8;">transfer_within_a_station</span>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-left:5px; padding: 4px 0 4px 15px; border-left: 2px dashed #EADBC8; font-size:0.72rem;">
+    <span style="color:#78716C; font-weight:600; display:flex; align-items:center; gap:3px;">
+        <span class="material-symbols-outlined" style="font-size:14px; color:#A8A29E;">transfer_within_a_station</span>
         <span>乗換待ち時間</span>
     </span>
-    <span style="color:#0284C7; font-weight:700; background:#F0F9FF; padding:1.5px 7px; border-radius:6px; border:1px solid #BAE6FD;">
+    <span style="color:#C2410C; font-weight:700; background:#FFF7ED; padding:1.5px 7px; border-radius:6px; border:1px solid #FED7AA;">
         {wait_m}分 ({badge_text})
     </span>
 </div>
@@ -1322,12 +1322,12 @@ st.markdown(metro_html, unsafe_allow_html=True)
 # -------------------------------------------------------------
 if len(routes) > 1:
     st.markdown(f"""
-    <div style="font-size:0.75rem; font-weight:800; color:#334155; letter-spacing:0.04em; margin: 14px 2px 8px 2px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="font-size:0.75rem; font-weight:800; color:#44403C; letter-spacing:0.04em; margin: 14px 2px 8px 2px; display:flex; justify-content:space-between; align-items:center;">
         <span style="display:flex; align-items:center; gap:5px;">
-            <span class="material-symbols-outlined" style="font-size:16px; color:#0284C7;">schedule</span>
+            <span class="material-symbols-outlined" style="font-size:16px; color:#EA580C;">schedule</span>
             <span>その後の運行候補を比較</span>
         </span>
-        <span style="font-size:0.68rem; color:#64748B; font-weight:700; background:#F1F5F9; border:1px solid #E2E8F0; padding:2px 8px; border-radius:10px;">全{len(routes)}候補</span>
+        <span style="font-size:0.68rem; color:#78716C; font-weight:700; background:#FAF6EE; border:1px solid #F3E8D6; padding:2px 8px; border-radius:10px;">全{len(routes)}候補</span>
     </div>
     """, unsafe_allow_html=True)
     cols = st.columns(len(routes))
@@ -1419,8 +1419,8 @@ if st.session_state.get("is_admin", False):
                 st.session_state["is_admin"] = False
                 st.rerun()
 
-        st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#004B73; margin:8px 0 2px 0;'>🔑 ① 一般ログインパスワードの変更（ご家族用）</div>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.72rem; color:#64748B; margin:0 0 6px 0;'>ご家族に教える「閲覧用パスワード」を変更します。（※管理者パスワードは変わりません）</p>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#9A3412; margin:8px 0 2px 0;'>🔑 ① 一般ログインパスワードの変更（ご家族用）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem; color:#78716C; margin:0 0 6px 0;'>ご家族に教える「閲覧用パスワード」を変更します。（※管理者パスワードは変わりません）</p>", unsafe_allow_html=True)
         with st.form("change_user_pwd_form", clear_on_submit=True):
             new_u_pwd = st.text_input("新しい一般ログインパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
             new_u_pwd_conf = st.text_input("新しい一般ログインパスワード（再確認）", type="password", placeholder="新しいパスワードを再入力")
@@ -1439,8 +1439,8 @@ if st.session_state.get("is_admin", False):
                         st.error("❌ パスワードの保存に失敗しました。")
 
         st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
-        st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#004B73; margin:8px 0 2px 0;'>🛡️ ② 管理者用マスターパスワードの変更（管理者様専用）</div>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.72rem; color:#64748B; margin:0 0 6px 0;'>設定管理やURL再発行を行うための管理者専用パスワードを変更します。</p>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#9A3412; margin:8px 0 2px 0;'>🛡️ ② 管理者用マスターパスワードの変更（管理者様専用）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem; color:#78716C; margin:0 0 6px 0;'>設定管理やURL再発行を行うための管理者専用パスワードを変更します。</p>", unsafe_allow_html=True)
         with st.form("change_admin_pwd_form", clear_on_submit=True):
             cur_a_pwd = st.text_input("現在の管理者パスワード", type="password", placeholder="現在の管理者パスワード")
             new_a_pwd = st.text_input("新しい管理者パスワード（4文字以上）", type="password", placeholder="新しい管理者パスワード")
@@ -1466,8 +1466,8 @@ if st.session_state.get("is_admin", False):
         if credentials and "token" in credentials:
             token = credentials["token"]
             dynamic_url = generate_token_link(token)
-            st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
-            st.markdown("<p style='font-size:0.73rem; color:#64748B; margin-bottom:6px;'>ご家族に共有するための専用URLです。パスワード入力不要で安全に起動できます。</p>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#44403C; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size:0.73rem; color:#78716C; margin-bottom:6px;'>ご家族に共有するための専用URLです。パスワード入力不要で安全に起動できます。</p>", unsafe_allow_html=True)
 
             init_display_url = dynamic_url if dynamic_url.startswith("http") else f"?token={token}"
 
@@ -1489,10 +1489,10 @@ if st.session_state.get("is_admin", False):
                     gap: 8px;
                     align-items: center;
                     background: #FFFFFF;
-                    border: 1px solid #CBD5E1;
+                    border: 1px solid #EADBC8;
                     border-radius: 12px;
                     padding: 6px 10px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                    box-shadow: 0 1px 3px rgba(67,20,7,0.03);
                 }}
                 input {{
                     flex: 1;
@@ -1500,7 +1500,7 @@ if st.session_state.get("is_admin", False):
                     background: transparent;
                     font-family: 'JetBrains Mono', monospace;
                     font-size: 0.8rem;
-                    color: #334155;
+                    color: #44403C;
                     outline: none;
                     width: 100%;
                 }}
@@ -1509,17 +1509,17 @@ if st.session_state.get("is_admin", False):
                     font-size: 0.8rem;
                     font-weight: 700;
                     color: white;
-                    background: linear-gradient(135deg, #004B73 0%, #003350 100%);
+                    background: linear-gradient(135deg, #EA580C 0%, #F97316 100%);
                     border: none;
                     border-radius: 8px;
                     cursor: pointer;
                     white-space: nowrap;
-                    box-shadow: 0 2px 6px rgba(0, 75, 115, 0.2);
+                    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.28);
                     transition: all 0.15s ease;
                 }}
                 button:hover {{
-                    background: linear-gradient(135deg, #003859 0%, #002238 100%);
-                    box-shadow: 0 4px 10px rgba(0, 75, 115, 0.3);
+                    background: linear-gradient(135deg, #C2410C 0%, #EA580C 100%);
+                    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.38);
                 }}
                 .toast {{
                     display: none;
@@ -1555,7 +1555,7 @@ if st.session_state.get("is_admin", False):
                     toast.style.display = 'block';
                     setTimeout(function() {{
                         btn.innerText = '📋 コピー';
-                        btn.style.background = '#006699';
+                        btn.style.background = '#EA580C';
                         toast.style.display = 'none';
                     }}, 4000);
                 }}
@@ -1574,10 +1574,10 @@ if st.session_state.get("is_admin", False):
             </body>
             </html>
             """
-            st.markdown("<div style='font-size:0.75rem; font-weight:600; color:#334155; margin-bottom:4px;'>💡 現在開いているブラウザのアドレスから自動生成された共有URL:</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:0.75rem; font-weight:600; color:#44403C; margin-bottom:4px;'>💡 現在開いているブラウザのアドレスから自動生成された共有URL:</div>", unsafe_allow_html=True)
             components.html(iframe_html, height=72)
             st.code(init_display_url, language="text")
-            st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLが確実にコピーされます。")
+            st.caption("※上のオレンジの「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLが確実にコピーされます。")
 
             # ワンタップURLの即時再発行・失効ボタン
             if st.button("🔄 共有URLを再発行（古いURLを無効化）", key="btn_regen_token", use_container_width=True, help="万が一の誤送信時などに、古いURLを即座に使えなくして新しいURLを発行します"):
@@ -1638,9 +1638,9 @@ with col_act2:
         st.rerun()
 
 st.markdown(f"""
-<div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.7 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
-    <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
+<div style="text-align:center; color:#A8A29E; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
+    KOIASA TRANSIT SYSTEM Ver 3.8 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    <span style="font-size:0.62rem; color:#D6D3D1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
 
