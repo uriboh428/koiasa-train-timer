@@ -163,67 +163,130 @@ def load_auth_credentials() -> Optional[Dict[str, Any]]:
     try:
         import streamlit as st
         if hasattr(st, "secrets"):
+            u_h, u_s = None, None
             if "APP_PASSWORD_HASH" in st.secrets and "APP_PASSWORD_SALT" in st.secrets:
-                h = str(st.secrets["APP_PASSWORD_HASH"])
-                s = str(st.secrets["APP_PASSWORD_SALT"])
+                u_h = str(st.secrets["APP_PASSWORD_HASH"])
+                u_s = str(st.secrets["APP_PASSWORD_SALT"])
+            elif "APP_PASSWORD" in st.secrets:
+                u_h, u_s = hash_password(str(st.secrets["APP_PASSWORD"]), "koiasa_static_salt_v1")
+            elif "APP_PIN" in st.secrets:
+                u_h, u_s = hash_password(str(st.secrets["APP_PIN"]), "koiasa_static_salt_v1")
+
+            a_h, a_s = None, None
+            if "ADMIN_PASSWORD_HASH" in st.secrets and "ADMIN_PASSWORD_SALT" in st.secrets:
+                a_h = str(st.secrets["ADMIN_PASSWORD_HASH"])
+                a_s = str(st.secrets["ADMIN_PASSWORD_SALT"])
+            elif "ADMIN_PASSWORD" in st.secrets:
+                a_h, a_s = hash_password(str(st.secrets["ADMIN_PASSWORD"]), "koiasa_admin_static_salt_v1")
+
+            # 管理者パスワード未設定時は一般パスワードをフォールバック兼用
+            if u_h and u_s:
+                if not a_h or not a_s:
+                    a_h, a_s = u_h, u_s
                 ts = session_token_salt or (str(st.secrets["APP_TOKEN_SALT"]) if "APP_TOKEN_SALT" in st.secrets else None)
                 return {
-                    "hash": h,
-                    "salt": s,
+                    "user_hash": u_h,
+                    "user_salt": u_s,
+                    "admin_hash": a_h,
+                    "admin_salt": a_s,
+                    "hash": u_h,  # 旧互換
+                    "salt": u_s,  # 旧互換
                     "token_salt": ts,
-                    "token": get_secure_token(s, h, ts),
+                    "token": get_secure_token(u_s, u_h, ts),
                     "source": "secrets"
                 }
-            if "APP_PASSWORD" in st.secrets:
-                h, s = hash_password(str(st.secrets["APP_PASSWORD"]), "koiasa_static_salt_v1")
-                ts = session_token_salt or (str(st.secrets["APP_TOKEN_SALT"]) if "APP_TOKEN_SALT" in st.secrets else None)
-                return {"hash": h, "salt": s, "token_salt": ts, "token": get_secure_token(s, h, ts), "source": "secrets"}
-            if "APP_PIN" in st.secrets:
-                h, s = hash_password(str(st.secrets["APP_PIN"]), "koiasa_static_salt_v1")
-                ts = session_token_salt or (str(st.secrets["APP_TOKEN_SALT"]) if "APP_TOKEN_SALT" in st.secrets else None)
-                return {"hash": h, "salt": s, "token_salt": ts, "token": get_secure_token(s, h, ts), "source": "secrets"}
     except Exception:
         pass
 
     # 2. 環境変数の確認
-    env_hash = os.environ.get("APP_PASSWORD_HASH")
-    env_salt = os.environ.get("APP_PASSWORD_SALT")
-    if env_hash and env_salt:
+    env_u_h = os.environ.get("APP_PASSWORD_HASH")
+    env_u_s = os.environ.get("APP_PASSWORD_SALT")
+    if not env_u_h and os.environ.get("APP_PASSWORD"):
+        env_u_h, env_u_s = hash_password(str(os.environ.get("APP_PASSWORD")), "koiasa_static_salt_v1")
+    elif not env_u_h and os.environ.get("APP_PIN"):
+        env_u_h, env_u_s = hash_password(str(os.environ.get("APP_PIN")), "koiasa_static_salt_v1")
+
+    env_a_h = os.environ.get("ADMIN_PASSWORD_HASH")
+    env_a_s = os.environ.get("ADMIN_PASSWORD_SALT")
+    if not env_a_h and os.environ.get("ADMIN_PASSWORD"):
+        env_a_h, env_a_s = hash_password(str(os.environ.get("ADMIN_PASSWORD")), "koiasa_admin_static_salt_v1")
+
+    if env_u_h and env_u_s:
+        if not env_a_h or not env_a_s:
+            env_a_h, env_a_s = env_u_h, env_u_s
         ts = session_token_salt or os.environ.get("APP_TOKEN_SALT")
         return {
-            "hash": env_hash,
-            "salt": env_salt,
+            "user_hash": env_u_h,
+            "user_salt": env_u_s,
+            "admin_hash": env_a_h,
+            "admin_salt": env_a_s,
+            "hash": env_u_h,
+            "salt": env_u_s,
             "token_salt": ts,
-            "token": get_secure_token(env_salt, env_hash, ts),
+            "token": get_secure_token(env_u_s, env_u_h, ts),
             "source": "env"
         }
-
-    env_pass = os.environ.get("APP_PASSWORD") or os.environ.get("APP_PIN")
-    if env_pass:
-        h, s = hash_password(str(env_pass), "koiasa_static_salt_v1")
-        ts = session_token_salt or os.environ.get("APP_TOKEN_SALT")
-        return {"hash": h, "salt": s, "token_salt": ts, "token": get_secure_token(s, h, ts), "source": "env"}
 
     # 3. auth_config.json の確認
     if os.path.exists(AUTH_CONFIG_FILE):
         try:
             with open(AUTH_CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if "hash" in data and "salt" in data:
-                    h = data["hash"]
-                    s = data["salt"]
+                u_h = data.get("user_hash") or data.get("hash")
+                u_s = data.get("user_salt") or data.get("salt")
+                a_h = data.get("admin_hash") or u_h
+                a_s = data.get("admin_salt") or u_s
+                if u_h and u_s:
                     ts = session_token_salt or data.get("token_salt")
                     return {
-                        "hash": h,
-                        "salt": s,
+                        "user_hash": u_h,
+                        "user_salt": u_s,
+                        "admin_hash": a_h,
+                        "admin_salt": a_s,
+                        "hash": u_h,
+                        "salt": u_s,
                         "token_salt": ts,
-                        "token": get_secure_token(s, h, ts),
+                        "token": get_secure_token(u_s, u_h, ts),
                         "source": "file"
                     }
         except Exception:
             pass
 
     return None
+
+
+def verify_user_login(password: str, credentials: Optional[Dict[str, Any]]) -> bool:
+    """
+    ログイン画面での認証検証
+    一般ログインパスワード、または管理者用マスターパスワードのどちらでも解錠可能
+    """
+    if not credentials or not password:
+        return False
+    # 1. 一般ログインパスワードで検証
+    u_h = credentials.get("user_hash") or credentials.get("hash")
+    u_s = credentials.get("user_salt") or credentials.get("salt")
+    if u_h and u_s and verify_password(password, u_h, u_s):
+        return True
+    # 2. 管理者用パスワードで検証
+    a_h = credentials.get("admin_hash")
+    a_s = credentials.get("admin_salt")
+    if a_h and a_s and verify_password(password, a_h, a_s):
+        return True
+    return False
+
+
+def verify_admin_access(password: str, credentials: Optional[Dict[str, Any]]) -> bool:
+    """
+    管理者メニュー（画面最下部）でのアンロック検証
+    【管理者用マスターパスワード】でのみ解錠可能（一般パスワードは厳格に遮断）
+    """
+    if not credentials or not password:
+        return False
+    a_h = credentials.get("admin_hash") or credentials.get("hash")
+    a_s = credentials.get("admin_salt") or credentials.get("salt")
+    if a_h and a_s:
+        return verify_password(password, a_h, a_s)
+    return False
 
 
 def save_token_salt(token_salt: str) -> bool:
@@ -265,21 +328,97 @@ def regenerate_secure_token() -> str:
     return new_seed
 
 
-def save_auth_credentials(password: str, token_salt: Optional[str] = None) -> bool:
+def save_auth_credentials(
+    user_password: str,
+    admin_password: Optional[str] = None,
+    token_salt: Optional[str] = None
+) -> bool:
     """
-    新しいパスワードを暗号化ハッシュとして auth_config.json に保存
+    一般パスワードおよび管理者パスワードを保存
+    admin_password が省略された場合は user_password を管理者用としても兼用設定
     """
-    if len(password) < MIN_PASSWORD_LENGTH:
+    if len(user_password) < MIN_PASSWORD_LENGTH:
+        return False
+    if admin_password and len(admin_password) < MIN_PASSWORD_LENGTH:
         return False
     try:
-        h, s = hash_password(password)
+        u_h, u_s = hash_password(user_password)
+        if admin_password:
+            a_h, a_s = hash_password(admin_password)
+        else:
+            a_h, a_s = u_h, u_s
+
         data = {
-            "hash": h,
-            "salt": s,
+            "user_hash": u_h,
+            "user_salt": u_s,
+            "admin_hash": a_h,
+            "admin_salt": a_s,
+            "hash": u_h,  # 旧互換
+            "salt": u_s,  # 旧互換
             "token_salt": token_salt or secrets.token_hex(16),
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "version": "3.1"
+            "version": "3.7"
         }
+        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception:
+        return False
+
+
+def update_user_password(new_user_password: str) -> bool:
+    """一般ログインパスワードのみを変更（管理者パスワードは維持）"""
+    if len(new_user_password) < MIN_PASSWORD_LENGTH:
+        return False
+    creds = load_auth_credentials()
+    if not creds:
+        return False
+    u_h, u_s = hash_password(new_user_password)
+    a_h = creds.get("admin_hash") or creds.get("hash")
+    a_s = creds.get("admin_salt") or creds.get("salt")
+    ts = creds.get("token_salt")
+    data = {
+        "user_hash": u_h,
+        "user_salt": u_s,
+        "admin_hash": a_h,
+        "admin_salt": a_s,
+        "hash": u_h,
+        "salt": u_s,
+        "token_salt": ts or secrets.token_hex(16),
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "version": "3.7"
+    }
+    try:
+        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception:
+        return False
+
+
+def update_admin_password(new_admin_password: str) -> bool:
+    """管理者用パスワードのみを変更（一般パスワードは維持）"""
+    if len(new_admin_password) < MIN_PASSWORD_LENGTH:
+        return False
+    creds = load_auth_credentials()
+    if not creds:
+        return False
+    u_h = creds.get("user_hash") or creds.get("hash")
+    u_s = creds.get("user_salt") or creds.get("salt")
+    a_h, a_s = hash_password(new_admin_password)
+    ts = creds.get("token_salt")
+    data = {
+        "user_hash": u_h,
+        "user_salt": u_s,
+        "admin_hash": a_h,
+        "admin_salt": a_s,
+        "hash": u_h,
+        "salt": u_s,
+        "token_salt": ts or secrets.token_hex(16),
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "version": "3.7"
+    }
+    try:
         with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         return True
@@ -306,12 +445,19 @@ def check_lockout_status(attempts: Optional[int] = None, lock_until: Optional[fl
     return manager.get_lockout_status()
 
 
-def get_secrets_toml_template(password: str, salt: Optional[str] = None, token_salt: Optional[str] = None) -> str:
+def get_secrets_toml_template(
+    user_hash: str = "",
+    user_salt: str = "",
+    admin_hash: str = "",
+    admin_salt: str = "",
+    token_salt: Optional[str] = None
+) -> str:
     """Streamlit Cloud Secrets に設定するTOML設定文字列を生成"""
-    h, s = hash_password(password, salt)
-    res = f'APP_PASSWORD_HASH = "{h}"\nAPP_PASSWORD_SALT = "{s}"'
+    res = f'# 一般ログイン用パスワード（ご家族向け）\nAPP_PASSWORD_HASH = "{user_hash}"\nAPP_PASSWORD_SALT = "{user_salt}"'
+    if admin_hash and admin_salt:
+        res += f'\n\n# 管理者専用マスターパスワード（管理者様専用）\nADMIN_PASSWORD_HASH = "{admin_hash}"\nADMIN_PASSWORD_SALT = "{admin_salt}"'
     if token_salt:
-        res += f'\nAPP_TOKEN_SALT = "{token_salt}"'
+        res += f'\n\n# 安全なワンタップ起動URL用暗号ソルト\nAPP_TOKEN_SALT = "{token_salt}"'
     return res
 
 

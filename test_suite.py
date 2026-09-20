@@ -450,11 +450,12 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記が Ver 3.6 に統一されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記が Ver 3.7 に統一されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("Ver 3.6", content, "app.py に Ver 3.6 が含まれている必要があります")
+        self.assertIn("Ver 3.7", content, "app.py に Ver 3.7 が含まれている必要があります")
+        self.assertNotIn("Ver 3.6", content, "app.py に古い Ver 3.6 が残っていてはいけません")
         self.assertNotIn("Ver 3.5", content, "app.py に古い Ver 3.5 が残っていてはいけません")
         self.assertNotIn("Ver 3.4", content, "app.py に古い Ver 3.4 が残っていてはいけません")
         self.assertNotIn("Ver 3.3", content, "app.py に古い Ver 3.3 が残っていてはいけません")
@@ -467,12 +468,22 @@ class TestRevisionDetector(unittest.TestCase):
 
     def test_admin_role_separation_and_security(self):
         """【Role Governance】家族利用時の管理者権限分離とアンロック整合性の検証"""
-        from auth_manager import hash_password, verify_password
+        from auth_manager import hash_password, verify_admin_access
 
-        # 模擬的な管理者パスワード情報
-        admin_pwd = "MySecretAdmin2026!"
-        h, s = hash_password(admin_pwd)
-        mock_creds = {"hash": h, "salt": s, "token": "abc123token456"}
+        # 模擬的な二重パスワード情報
+        u_pwd = "FamilyUser2026!"
+        a_pwd = "MySecretAdmin2026!"
+        u_h, u_s = hash_password(u_pwd)
+        a_h, a_s = hash_password(a_pwd)
+        mock_creds = {
+            "user_hash": u_h,
+            "user_salt": u_s,
+            "admin_hash": a_h,
+            "admin_salt": a_s,
+            "hash": u_h,
+            "salt": u_s,
+            "token": "abc123token456"
+        }
 
         # 1. 家族向けセッション（一般モード）の初期状態シミュレーション
         session_state = {
@@ -484,21 +495,76 @@ class TestRevisionDetector(unittest.TestCase):
 
         # 2. 誤ったパスワードによる管理者アンロック試行（失敗）
         wrong_input = "WrongPassword999"
-        unlock_success = verify_password(wrong_input, mock_creds["hash"], mock_creds["salt"])
+        unlock_success = verify_admin_access(wrong_input, mock_creds)
         self.assertFalse(unlock_success, "誤ったパスワードではアンロックできないこと")
         self.assertFalse(session_state["is_admin"], "権限が昇格されないこと")
 
-        # 3. 正しいパスワードによる管理者アンロック試行（成功）
-        correct_input = admin_pwd
-        unlock_success = verify_password(correct_input, mock_creds["hash"], mock_creds["salt"])
-        self.assertTrue(unlock_success, "正しいパスワードでアンロック認証が成功すること")
+        # 3. 一般ログインパスワードによる管理者アンロック試行（完全遮断・失敗）
+        user_input = u_pwd
+        unlock_user_attempt = verify_admin_access(user_input, mock_creds)
+        self.assertFalse(unlock_user_attempt, "一般ログインパスワードでは管理者メニューをアンロックできないこと")
+
+        # 4. 正しい管理者マスターパスワードによるアンロック試行（成功）
+        correct_input = a_pwd
+        unlock_success = verify_admin_access(correct_input, mock_creds)
+        self.assertTrue(unlock_success, "管理者パスワードでアンロック認証が成功すること")
         if unlock_success:
             session_state["is_admin"] = True
         self.assertTrue(session_state["is_admin"], "管理者権限に安全に昇格できること")
 
-        # 4. 管理者モード終了（一般モードへの復帰）
+        # 5. 管理者モード終了（一般モードへの復帰）
         session_state["is_admin"] = False
         self.assertFalse(session_state["is_admin"], "一般モードに安全に降格できること")
+
+    def test_dual_password_complete_separation(self):
+        """【Security Architecture】一般パスワードと管理者用パスワードの完全分離・相互運用性の検証"""
+        from auth_manager import (
+            hash_password,
+            verify_user_login,
+            verify_admin_access,
+            save_auth_credentials,
+            update_user_password,
+            update_admin_password,
+            load_auth_credentials,
+            AUTH_CONFIG_FILE,
+        )
+
+        user_pwd = "FamilyPassword123"
+        admin_pwd = "MasterAdminPassword999"
+        u_h, u_s = hash_password(user_pwd)
+        a_h, a_s = hash_password(admin_pwd)
+
+        creds = {
+            "user_hash": u_h,
+            "user_salt": u_s,
+            "admin_hash": a_h,
+            "admin_salt": a_s,
+            "hash": u_h,
+            "salt": u_s,
+        }
+
+        # A. ログイン画面の検証 (verify_user_login)
+        # 1. 一般パスワードでログイン成功
+        self.assertTrue(verify_user_login(user_pwd, creds), "一般パスワードでログインできること")
+        # 2. 管理者パスワードでもログイン成功（管理者の普段使いサポート）
+        self.assertTrue(verify_user_login(admin_pwd, creds), "管理者パスワードでもログインできること")
+        # 3. 間違ったパスワードは拒絶
+        self.assertFalse(verify_user_login("WrongPassword", creds), "誤ったパスワードは拒絶されること")
+
+        # B. 管理者メニューの検証 (verify_admin_access)
+        # 1. 管理者パスワードでのみ解除可能
+        self.assertTrue(verify_admin_access(admin_pwd, creds), "管理者パスワードで管理者メニューが開けること")
+        # 2. 一般パスワードでは絶対に解除不可（二重防壁）
+        self.assertFalse(verify_admin_access(user_pwd, creds), "一般パスワードでは管理者メニューは開けないこと")
+
+        # C. 後方互換性テスト（旧データ形式: admin_hash 未設定時）
+        legacy_creds = {
+            "hash": u_h,
+            "salt": u_s,
+        }
+        # 旧形式では既存パスワードが管理者パスワードとしても兼用される
+        self.assertTrue(verify_user_login(user_pwd, legacy_creds), "旧形式でもログイン可能")
+        self.assertTrue(verify_admin_access(user_pwd, legacy_creds), "旧形式では管理者アクセスもフォールバック動作")
 
     def test_token_regeneration_and_revocation(self):
         """【Security】トークン再発行による古いURLトークンの即時失効と新トークン認証を検証"""

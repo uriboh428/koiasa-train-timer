@@ -17,6 +17,10 @@ from auth_manager import (
     load_auth_credentials,
     save_auth_credentials,
     verify_password,
+    verify_user_login,
+    verify_admin_access,
+    update_user_password,
+    update_admin_password,
     get_secure_token,
     verify_secure_token,
     regenerate_secure_token,
@@ -513,7 +517,7 @@ st.markdown("""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       Goodpatch Neo-Tokyo Metro Design System (Ver 3.6)
+       Goodpatch Neo-Tokyo Metro Design System (Ver 3.7)
        Human-Centered Design / Apple HIG & Linear Precision Spec
        ========================================================================== */
     :root {
@@ -916,19 +920,28 @@ if credentials is None:
     """, unsafe_allow_html=True)
 
     with st.form("setup_password_form", clear_on_submit=False):
-        setup_pass = st.text_input("パスワードの設定（4文字以上）", type="password", placeholder="パスワードを入力")
-        setup_confirm = st.text_input("パスワードの再入力（確認）", type="password", placeholder="同じパスワードを入力")
+        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#004B73; margin-bottom:2px;'>① 一般ログインパスワード（ご家族用）</div>", unsafe_allow_html=True)
+        setup_user_pass = st.text_input("ご家族向けログインパスワード（4文字以上）", type="password", placeholder="例: 家族で共有するパスワード")
+        setup_user_confirm = st.text_input("ご家族向けログインパスワード（再入力）", type="password", placeholder="同じパスワードを再入力")
+
+        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#004B73; margin:12px 0 2px 0;'>② 管理者用マスターパスワード（管理者様専用）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem; color:#64748B; margin:0 0 4px 0;'>※設定変更やURL再発行を行うための専用パスワードです。未入力の場合は上記一般パスワードと同じになります。</p>", unsafe_allow_html=True)
+        setup_admin_pass = st.text_input("管理者専用パスワード（4文字以上・任意）", type="password", placeholder="管理者専用パスワード（省略可）")
+
         setup_submit = st.form_submit_button("パスワードを登録して起動 🔒", use_container_width=True, type="primary")
 
         if setup_submit:
-            if len(setup_pass) < MIN_PASSWORD_LENGTH:
-                st.error(f"❌ パスワードは{MIN_PASSWORD_LENGTH}文字以上で設定してください。")
-            elif setup_pass != setup_confirm:
-                st.error("❌ 確認用パスワードが一致しません。")
+            if len(setup_user_pass) < MIN_PASSWORD_LENGTH:
+                st.error(f"❌ 一般ログインパスワードは{MIN_PASSWORD_LENGTH}文字以上で設定してください。")
+            elif setup_user_pass != setup_user_confirm:
+                st.error("❌ 一般ログインパスワードの再確認が一致しません。")
+            elif setup_admin_pass and len(setup_admin_pass) < MIN_PASSWORD_LENGTH:
+                st.error(f"❌ 管理者用パスワードを設定する場合は{MIN_PASSWORD_LENGTH}文字以上で設定してください。")
             else:
-                if save_auth_credentials(setup_pass):
+                admin_p = setup_admin_pass if setup_admin_pass else None
+                if save_auth_credentials(setup_user_pass, admin_p):
                     st.session_state["authenticated"] = True
-                    st.session_state["is_admin"] = False
+                    st.session_state["is_admin"] = bool(admin_p)
                     sec_mgr.record_success()
                     st.success("✅ パスワードを設定しました。アプリを起動します...")
                     st.rerun()
@@ -968,7 +981,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.6 (完全ロール分離 ＆ 家族安心ゼロトラスト版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.7 (ログイン・管理者パスワード完全分離版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -991,9 +1004,13 @@ if not st.session_state["authenticated"]:
         )
 
         if submitted and not is_locked:
-            if verify_password(input_pass, credentials["hash"], credentials["salt"]):
+            if verify_user_login(input_pass, credentials):
                 st.session_state["authenticated"] = True
-                st.session_state["is_admin"] = False
+                # 管理者パスワードで直接ログインした場合は管理者権限も有効化
+                if verify_admin_access(input_pass, credentials):
+                    st.session_state["is_admin"] = True
+                else:
+                    st.session_state["is_admin"] = False
                 sec_mgr.record_success()
                 st.rerun()
             else:
@@ -1043,7 +1060,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">Ver 3.6 (完全ロール分離 ＆ 家族安心ゼロトラスト版)</span>
+        <span class="version-tag">Ver 3.7 (ログイン・管理者パスワード完全分離版)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1402,23 +1419,45 @@ if st.session_state.get("is_admin", False):
                 st.session_state["is_admin"] = False
                 st.rerun()
 
-        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#334155; margin:8px 0 4px 0;'>🔑 パスワードの変更</div>", unsafe_allow_html=True)
-        with st.form("change_password_form", clear_on_submit=True):
-            cur_pwd = st.text_input("現在のパスワード", type="password", placeholder="現在のパスワード")
-            new_pwd = st.text_input("新しいパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
-            new_pwd_conf = st.text_input("新しいパスワード（再確認）", type="password", placeholder="新しいパスワードを再入力")
-            update_btn = st.form_submit_button("パスワードを変更する", use_container_width=True)
+        st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#004B73; margin:8px 0 2px 0;'>🔑 ① 一般ログインパスワードの変更（ご家族用）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem; color:#64748B; margin:0 0 6px 0;'>ご家族に教える「閲覧用パスワード」を変更します。（※管理者パスワードは変わりません）</p>", unsafe_allow_html=True)
+        with st.form("change_user_pwd_form", clear_on_submit=True):
+            new_u_pwd = st.text_input("新しい一般ログインパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
+            new_u_pwd_conf = st.text_input("新しい一般ログインパスワード（再確認）", type="password", placeholder="新しいパスワードを再入力")
+            update_u_btn = st.form_submit_button("一般ログインパスワードを更新する", use_container_width=True)
 
-            if update_btn:
-                if not credentials or not verify_password(cur_pwd, credentials["hash"], credentials["salt"]):
-                    st.error("❌ 現在のパスワードが正しくありません。")
-                elif len(new_pwd) < MIN_PASSWORD_LENGTH:
-                    st.error(f"❌ 新しいパスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
-                elif new_pwd != new_pwd_conf:
-                    st.error("❌ 新しいパスワードの再確認が一致しません。")
+            if update_u_btn:
+                if len(new_u_pwd) < MIN_PASSWORD_LENGTH:
+                    st.error(f"❌ パスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
+                elif new_u_pwd != new_u_pwd_conf:
+                    st.error("❌ 再確認用パスワードが一致しません。")
                 else:
-                    if save_auth_credentials(new_pwd):
-                        st.success("✅ パスワードを正常に変更しました！次回から新しいパスワードでログインしてください。")
+                    if update_user_password(new_u_pwd):
+                        st.success("✅ 一般ログインパスワードを正常に変更しました！ご家族に新しいパスワードをお伝えください。")
+                        st.rerun()
+                    else:
+                        st.error("❌ パスワードの保存に失敗しました。")
+
+        st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#004B73; margin:8px 0 2px 0;'>🛡️ ② 管理者用マスターパスワードの変更（管理者様専用）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.72rem; color:#64748B; margin:0 0 6px 0;'>設定管理やURL再発行を行うための管理者専用パスワードを変更します。</p>", unsafe_allow_html=True)
+        with st.form("change_admin_pwd_form", clear_on_submit=True):
+            cur_a_pwd = st.text_input("現在の管理者パスワード", type="password", placeholder="現在の管理者パスワード")
+            new_a_pwd = st.text_input("新しい管理者パスワード（4文字以上）", type="password", placeholder="新しい管理者パスワード")
+            new_a_pwd_conf = st.text_input("新しい管理者パスワード（再確認）", type="password", placeholder="新しい管理者パスワードを再入力")
+            update_a_btn = st.form_submit_button("管理者パスワードを更新する", use_container_width=True)
+
+            if update_a_btn:
+                if not credentials or not verify_admin_access(cur_a_pwd, credentials):
+                    st.error("❌ 現在の管理者パスワードが正しくありません。")
+                elif len(new_a_pwd) < MIN_PASSWORD_LENGTH:
+                    st.error(f"❌ 新しいパスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
+                elif new_a_pwd != new_a_pwd_conf:
+                    st.error("❌ 新しい管理者パスワードの再確認が一致しません。")
+                else:
+                    if update_admin_password(new_a_pwd):
+                        st.success("✅ 管理者用マスターパスワードを正常に変更しました！次回から新しい管理者パスワードをご使用ください。")
+                        st.rerun()
                     else:
                         st.error("❌ パスワードの保存に失敗しました。")
 
@@ -1551,7 +1590,13 @@ if st.session_state.get("is_admin", False):
         if credentials:
             with st.expander("☁️ クラウド恒久保存（Secrets設定 - 上級者向け）", expanded=False):
                 st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>Streamlit Cloud の再起動時にも設定を100%保持したい場合は、Streamlit管理画面（Settings > Secrets）に以下を貼り付けてください。</p>", unsafe_allow_html=True)
-                secrets_toml = get_secrets_toml_template("", credentials["salt"], credentials.get("token_salt")).replace('""', f'"{credentials["hash"]}"')
+                secrets_toml = get_secrets_toml_template(
+                    credentials.get("user_hash", ""),
+                    credentials.get("user_salt", ""),
+                    credentials.get("admin_hash", ""),
+                    credentials.get("admin_salt", ""),
+                    credentials.get("token_salt")
+                )
                 st.code(secrets_toml, language="toml")
 
         st.markdown("---")
@@ -1566,18 +1611,18 @@ if st.session_state.get("is_admin", False):
 else:
     # ご家族（一般モード）向け：危険な管理操作は完全非表示
     with st.expander("🔒 管理者メニュー（パスワード認証）", expanded=False):
-        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:8px;'>パスワード変更や共有URLの管理を行うには、管理者パスワードを入力してください。</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:8px;'>パスワード変更や共有URLの管理を行うには、管理者用マスターパスワードを入力してください。</p>", unsafe_allow_html=True)
         with st.form("admin_unlock_form", clear_on_submit=True):
-            admin_input = st.text_input("管理者パスワード", type="password", placeholder="パスワードを入力")
+            admin_input = st.text_input("管理者パスワード", type="password", placeholder="管理者専用パスワードを入力")
             admin_submit = st.form_submit_button("認証してロック解除 🔓", use_container_width=True, type="primary")
 
             if admin_submit:
-                if credentials and verify_password(admin_input, credentials["hash"], credentials["salt"]):
+                if credentials and verify_admin_access(admin_input, credentials):
                     st.session_state["is_admin"] = True
                     st.success("✅ 管理者認証に成功しました！")
                     st.rerun()
                 else:
-                    st.error("❌ パスワードが正しくありません。")
+                    st.error("❌ 管理者パスワードが正しくありません。（一般ログインパスワードでは解除できません）")
 
 st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 col_act1, col_act2 = st.columns([1, 1])
@@ -1594,7 +1639,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.6 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.7 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
