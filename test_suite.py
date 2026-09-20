@@ -394,6 +394,26 @@ class TestRevisionDetector(unittest.TestCase):
         self.assertIn("?token=test_token_123", link3)
 
 
+    def test_all_python_files_syntax_compilation(self):
+        """【Quality Gate】全Pythonファイルの静的構文チェック（SyntaxError/f-string構文の全件検査）"""
+        import py_compile
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+        py_files = [
+            "app.py",
+            "auth_manager.py",
+            "transit_engine.py",
+            "timetable_data.py",
+            "test_suite.py",
+            "revision_detector.py",
+            "sync_push.py",
+        ]
+        for f in py_files:
+            target_path = os.path.join(project_dir, f)
+            if os.path.exists(target_path):
+                # doraise=True により構文エラー時は即座に PyCompileError 例外が飛ぶ
+                py_compile.compile(target_path, doraise=True)
+
+
 if __name__ == '__main__':
     unittest.main()
 
