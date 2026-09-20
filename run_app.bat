@@ -10,6 +10,6 @@ echo 終了したいときは、このウィンドウを閉じるか Ctrl+C を�
 echo.
 
 cd /d "%~dp0"
-python -m streamlit run app.py
+python -m streamlit run app.py --server.address 127.0.0.1
 
 pause
