@@ -335,6 +335,40 @@ class TestRevisionDetector(unittest.TestCase):
         self.assertFalse(verify_secure_token("", s, h))
         self.assertFalse(verify_secure_token(None, s, h))
 
+    def test_security_pbkdf2_and_legacy_hash_compatibility(self):
+        """PBKDF2ハッシュ（10万回ストレッチング）と旧単一SHA-256ハッシュの後方互換検証"""
+        from auth_manager import hash_password, verify_password
+        import hashlib
+
+        # 1. PBKDF2 ハッシュ生成と照合
+        h_pbkdf2, salt = hash_password("SecurePassword2026!")
+        self.assertTrue(h_pbkdf2.startswith("pbkdf2$"))
+        self.assertTrue(verify_password("SecurePassword2026!", h_pbkdf2, salt))
+        self.assertFalse(verify_password("WrongPassword2026!", h_pbkdf2, salt))
+
+        # 2. 旧単一SHA-256 ハッシュの後方互換照合
+        legacy_salt = "1234567890abcdef"
+        legacy_hash = hashlib.sha256((legacy_salt + "LegacyPassword123").encode("utf-8")).hexdigest()
+        self.assertTrue(verify_password("LegacyPassword123", legacy_hash, legacy_salt))
+        self.assertFalse(verify_password("WrongLegacyPassword", legacy_hash, legacy_salt))
+
+    def test_security_progressive_lockout(self):
+        """二段階プログレッシブロックアウト（5回で60秒、10回で300秒）の検証"""
+        from auth_manager import GlobalSecurityManager, MAX_FAILED_ATTEMPTS, SEVERE_FAILED_ATTEMPTS, SEVERE_LOCKOUT_DURATION_SECONDS
+        mgr = GlobalSecurityManager.get_instance()
+        mgr.record_success()
+
+        # 10回まで失敗を記録
+        for i in range(1, SEVERE_FAILED_ATTEMPTS + 1):
+            is_locked, sec = mgr.record_failure()
+            if i >= SEVERE_FAILED_ATTEMPTS:
+                self.assertTrue(is_locked)
+                self.assertEqual(sec, SEVERE_LOCKOUT_DURATION_SECONDS)
+            elif i >= MAX_FAILED_ATTEMPTS:
+                self.assertTrue(is_locked)
+
+        mgr.record_success()
+
     def test_security_news_url_validation(self):
         """ニュースURLのスキーム無害化検証（XSS・インジェクション防止）"""
         from revision_detector import is_valid_news_url
