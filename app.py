@@ -788,14 +788,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+from streamlit_cookies_controller import CookieController
+
 # ----------------------------------------------------
 # サイバーセキュリティ認証システム（グローバル共有ロック・暗号トークンURL）
+# ＋ 端末登録システム（電子的な通行証 Cookie）
 # ----------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 sec_mgr = GlobalSecurityManager.get_instance()
 credentials = load_auth_credentials()
+cookie_controller = CookieController()
 
 # A. 初回起動モード（パスワード未設定時）：初回セットアップ画面
 if credentials is None:
@@ -835,8 +839,14 @@ if credentials is None:
     """, unsafe_allow_html=True)
     st.stop()
 
-# B. パスワード設定済みの場合：セキュアトークンURL または URLパラメータ自動認証
-if not st.session_state["authenticated"]:
+# B. パスワード設定済みの場合：セキュアトークンURL または 端末Cookie または URLパラメータ自動認証
+if credentials and not st.session_state["authenticated"]:
+    # 0) 端末登録Cookieの確認 (電子通行証)
+    device_cookie = cookie_controller.get("koiasa_device_pass")
+    if device_cookie and verify_secure_token(str(device_cookie), credentials["salt"], credentials["hash"]):
+        st.session_state["authenticated"] = True
+        sec_mgr.record_success()
+
     # 1) 推測不能な暗号アクセストークンによる認証 (?token=...)
     query_token = st.query_params.get("token")
     if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"]):
@@ -858,8 +868,8 @@ if not st.session_state["authenticated"]:
         <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
-        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">恋朝トレインタイマー</h2>
-        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">端末の登録（ロック解除）</h2>
+        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリは許可された端末からのみアクセスできます。<br>パスワードを入力してこの端末を登録（電子通行証を発行）してください。</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -884,6 +894,11 @@ if not st.session_state["authenticated"]:
             if verify_password(input_pass, credentials["hash"], credentials["salt"]):
                 st.session_state["authenticated"] = True
                 sec_mgr.record_success()
+                
+                # 発行: 端末登録用の電子通行証 (Cookie) を発行（有効期限10年）
+                device_token = get_secure_token(credentials["salt"], credentials["hash"])
+                cookie_controller.set("koiasa_device_pass", device_token, max_age=315360000)
+                
                 st.rerun()
             else:
                 is_now_locked, lock_duration = sec_mgr.record_failure()
