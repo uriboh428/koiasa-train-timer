@@ -380,6 +380,20 @@ class TestRevisionDetector(unittest.TestCase):
         self.assertFalse(is_valid_news_url(None))
 
 
+    def test_dynamic_token_link_generation(self):
+        """動的トークンURL生成の検証（ベースURL指定時・未指定時のフォールバック）"""
+        from auth_manager import generate_token_link
+        link1 = generate_token_link("test_token_123", base_url="https://my-app.streamlit.app")
+        self.assertEqual(link1, "https://my-app.streamlit.app/?token=test_token_123")
+
+        link2 = generate_token_link("test_token_123", base_url="http://localhost:8501/")
+        self.assertEqual(link2, "http://localhost:8501/?token=test_token_123")
+
+        # base_urlが空の場合は ?token=... にフォールバック
+        link3 = generate_token_link("test_token_123", base_url="")
+        self.assertIn("?token=test_token_123", link3)
+
+
 if __name__ == '__main__':
     unittest.main()
 
