@@ -12,6 +12,7 @@ import time
 import urllib.parse
 from typing import List, Dict, Any, Optional
 import streamlit as st
+import streamlit.components.v1 as components
 from auth_manager import (
     load_auth_credentials,
     save_auth_credentials,
@@ -32,6 +33,12 @@ if BASE_DIR not in sys.path:
 
 # 日本標準時（JST: UTC+9）を厳格に定義（クラウドサーバーUTC対応）
 JST = datetime.timezone(datetime.timedelta(hours=9))
+
+def get_timestamp_ms(dt: datetime.datetime) -> int:
+    """JST準拠のUNIXエポックミリ秒を取得"""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=JST)
+    return int(dt.timestamp() * 1000)
 
 # セキュリティヘルパー関数（XSS対策・URL安全検証）
 def escape_text(text: object) -> str:
@@ -305,6 +312,7 @@ def calculate_koigakubo_to_asakadai(
         "arrival_time": final_arrv.strftime("%H:%M"),
         "total_minutes": total_min,
         "seconds_until_departure": seconds_left,
+        "departure_timestamp_ms": get_timestamp_ms(leg1_dept),
         "legs": legs,
     }
 
@@ -377,6 +385,7 @@ def calculate_asakadai_to_koigakubo(
         "arrival_time": leg3_arrv.strftime("%H:%M"),
         "total_minutes": total_min,
         "seconds_until_departure": seconds_left,
+        "departure_timestamp_ms": get_timestamp_ms(leg1_dept),
         "legs": legs,
     }
 
@@ -935,15 +944,197 @@ revision_info = get_revision_status()
 last_train = get_last_train_info(st.session_state["direction"], now=now_jst)
 
 # ----------------------------------------------------
-# リアルタイム秒針同期エンジン (@st.fragment(run_every=1))
+# リアルタイム経路計算 & クライアント自律型秒針エンジン
 # ----------------------------------------------------
-@st.fragment(run_every=1)
-def render_live_timer_and_header(direction: str, offset_minutes: int, pace: str, selected_index: int):
-    now_jst = datetime.datetime.now(JST)
-    time_str = now_jst.strftime("%H:%M:%S")
+def generate_hero_timer_html(
+    target_timestamp_ms: int,
+    dept_station: str,
+    arrv_station: str,
+    dept_time: str,
+    arrv_time: str,
+    total_minutes: int,
+    last_train_dept: str,
+    last_train_duration: int,
+) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }}
+        html, body {{
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            letter-spacing: -0.015em;
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+        }}
+        .top-nav {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 2px 7px 2px;
+        }}
+        .brand-wrap {{
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }}
+        .brand-title {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0F172A;
+            letter-spacing: -0.03em;
+        }}
+        .brand-tag {{
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }}
+        .live-status-pill {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }}
+        .live-dot {{
+            width: 6px;
+            height: 6px;
+            background-color: #10B981;
+            border-radius: 9999px;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+            animation: pulse 2s infinite;
+        }}
+        @keyframes pulse {{
+            0%, 100% {{ opacity: 1; transform: scale(1); }}
+            50% {{ opacity: 0.4; transform: scale(0.9); }}
+        }}
+        .live-clock {{
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+        }}
 
-    # 1. 極小スリム・トップバー（ブランド ＆ ライブステータス）
-    st.markdown(f"""
+        .hero-timer-card {{
+            background: #0F172A;
+            color: #FFFFFF;
+            border-radius: 18px;
+            padding: 13px 16px 12px 16px;
+            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }}
+        .hero-timer-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }}
+        .hero-micro-label {{
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94A3B8;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }}
+        .badge {{
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            letter-spacing: 0.04em;
+            display: inline-block;
+            transition: all 0.2s ease;
+        }}
+        .badge-normal {{
+            background: rgba(255, 255, 255, 0.12);
+            color: #E2E8F0;
+        }}
+        .badge-urgent {{
+            background: #EF4444;
+            color: #FFFFFF;
+            font-weight: 700;
+            animation: urgent-pulse 1.2s infinite;
+        }}
+        .badge-departed {{
+            background: #64748B;
+            color: #FFFFFF;
+        }}
+        @keyframes urgent-pulse {{
+            0%, 100% {{ opacity: 1; }}
+            50% {{ opacity: 0.6; }}
+        }}
+        .hero-timer-grid {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }}
+        .hero-digits {{
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+            font-size: 2.25rem;
+            font-weight: 700;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+            color: #F8FAFC;
+        }}
+        .hero-digits .unit {{
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: #94A3B8;
+            margin: 0 2px;
+        }}
+        .hero-schedule-box {{
+            text-align: right;
+        }}
+        .hero-schedule-times {{
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #F8FAFC;
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            gap: 5px;
+        }}
+        .hero-schedule-times .arrow {{
+            color: #64748B;
+            font-size: 0.85rem;
+            font-weight: 400;
+        }}
+        .hero-schedule-times .arrival {{
+            color: #38BDF8;
+        }}
+        .hero-meta-row {{
+            font-size: 0.72rem;
+            color: #94A3B8;
+            margin-top: 2px;
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+        }}
+    </style>
+</head>
+<body>
     <div class="top-nav">
         <div class="brand-wrap">
             <span class="brand-title">KOIASA</span>
@@ -953,80 +1144,139 @@ def render_live_timer_and_header(direction: str, offset_minutes: int, pace: str,
             <span class="live-dot"></span>
             <span style="font-size:0.72rem; font-weight:600; color:#334155;">平常運行</span>
             <span style="color:#CBD5E1; font-size:0.7rem; margin:0 1px;">|</span>
-            <span class="live-clock">{time_str}</span>
+            <span id="live-clock" class="live-clock">--:--:--</span>
         </div>
     </div>
-    """, unsafe_allow_html=True)
 
-    # リアルタイム経路計算
-    routes = get_routes(
-        direction=direction,
-        offset_minutes=offset_minutes,
-        pace=pace,
-        now=now_jst
-    )
-
-    if not routes:
-        st.warning("本日の運行は終了いたしました。")
-        return
-
-    selected_idx = min(selected_index, len(routes) - 1)
-    current_route = routes[selected_idx]
-    last_train = get_last_train_info(direction, now=now_jst)
-
-    wait_seconds = current_route["seconds_until_departure"]
-    if wait_seconds <= 0:
-        # 発車時刻到達時に親画面ごと次便へ自動バトンタッチ
-        st.rerun()
-
-    wait_min = wait_seconds // 60
-    wait_sec = wait_seconds % 60
-    is_urgent = wait_seconds <= 120
-
-    dept_station = "恋ヶ窪" if direction == "koigakubo_to_asakadai" else "朝霞台"
-    arrv_station = "朝霞台" if direction == "koigakubo_to_asakadai" else "恋ヶ窪"
-
-    urgent_badge = """<span style="background:#EF4444; color:#FFFFFF; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:9999px; letter-spacing:0.04em;">まもなく発車</span>""" if is_urgent else """<span style="background:rgba(255,255,255,0.12); color:#E2E8F0; font-size:0.65rem; font-weight:600; padding:2px 8px; border-radius:9999px; letter-spacing:0.04em;">NEXT DEPARTURE</span>"""
-
-    # 3. 【プレシジョン・ヒーローカード】リアルタイム秒刻みカウントダウン
-    st.markdown(f"""
     <div class="hero-timer-card">
         <div class="hero-timer-header">
             <span class="hero-micro-label">COUNTDOWN</span>
-            <div>{urgent_badge}</div>
+            <div><span id="hero-badge" class="badge badge-normal">NEXT DEPARTURE</span></div>
         </div>
         <div class="hero-timer-grid">
             <div>
-                <div class="hero-digits">
-                    <span>{wait_min:02d}</span><span class="unit">m</span><span>{wait_sec:02d}</span><span class="unit">s</span>
+                <div id="hero-countdown" class="hero-digits">
+                    <span>--</span><span class="unit">m</span><span>--</span><span class="unit">s</span>
                 </div>
                 <div style="font-size:0.7rem; color:#94A3B8; margin-top:3px; font-weight:500;">
-                    終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train['departure_time']}</span> 発（所要 {last_train['total_minutes']}分）
+                    終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train_dept}</span> 発（所要 {last_train_duration}分）
                 </div>
             </div>
             <div class="hero-schedule-box">
                 <div class="hero-schedule-times">
                     <span>{dept_station}</span>
-                    <span>{current_route['departure_time']}</span>
+                    <span>{dept_time}</span>
                     <span class="arrow">→</span>
                     <span>{arrv_station}</span>
-                    <span class="arrival">{current_route['arrival_time']}</span>
+                    <span class="arrival">{arrv_time}</span>
                 </div>
                 <div class="hero-meta-row">
-                    <span>所要時間 約<strong style="color:#F8FAFC; font-weight:700;">{current_route['total_minutes']}</strong>分</span>
+                    <span>所要時間 約<strong style="color:#F8FAFC; font-weight:700;">{total_minutes}</strong>分</span>
                 </div>
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
 
-# リアルタイムヘッダー＆ヒーロータイマーの描画（1秒ごとに自律更新）
-render_live_timer_and_header(
+    <script>
+        (function() {{
+            const targetMs = {target_timestamp_ms};
+            let isReloading = false;
+
+            function tick() {{
+                const now = new Date();
+
+                // 1. トップバー現在時刻（ブラウザ時計で毎秒リアルタイム更新）
+                const h = String(now.getHours()).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+                const s = String(now.getSeconds()).padStart(2, '0');
+                const clockEl = document.getElementById('live-clock');
+                if (clockEl) {{
+                    clockEl.textContent = h + ':' + m + ':' + s;
+                }}
+
+                // 2. カウントダウン計算（端末時計とミリ秒差分を直接計算）
+                const diffMs = targetMs - now.getTime();
+                const countdownEl = document.getElementById('hero-countdown');
+                const badgeEl = document.getElementById('hero-badge');
+
+                if (diffMs <= 0) {{
+                    if (countdownEl) {{
+                        countdownEl.innerHTML = '<span>00</span><span class="unit">m</span><span>00</span><span class="unit">s</span>';
+                    }}
+                    if (badgeEl) {{
+                        badgeEl.className = 'badge badge-departed';
+                        badgeEl.textContent = '発車しました';
+                    }}
+                    if (!isReloading) {{
+                        isReloading = true;
+                        setTimeout(function() {{
+                            try {{
+                                window.parent.location.reload();
+                            }} catch (e) {{
+                                window.location.reload();
+                            }}
+                        }}, 1000);
+                    }}
+                    return;
+                }}
+
+                const totalSec = Math.floor(diffMs / 1000);
+                const minLeft = Math.floor(totalSec / 60);
+                const secLeft = totalSec % 60;
+
+                if (countdownEl) {{
+                    countdownEl.innerHTML = '<span>' + String(minLeft).padStart(2, '0') + '</span><span class="unit">m</span><span>' + String(secLeft).padStart(2, '0') + '</span><span class="unit">s</span>';
+                }}
+
+                if (badgeEl) {{
+                    if (totalSec <= 120) {{
+                        badgeEl.className = 'badge badge-urgent';
+                        badgeEl.textContent = 'まもなく発車';
+                    }} else {{
+                        badgeEl.className = 'badge badge-normal';
+                        badgeEl.textContent = 'NEXT DEPARTURE';
+                    }}
+                }}
+            }}
+
+            tick();
+            setInterval(tick, 250);
+        }})();
+    </script>
+</body>
+</html>"""
+
+# リアルタイム経路取得
+routes = get_routes(
     direction=st.session_state["direction"],
     offset_minutes=st.session_state["offset_minutes"],
     pace=st.session_state["pace"],
-    selected_index=st.session_state["selected_index"]
+    now=now_jst
 )
+
+if not routes:
+    st.warning("本日の運行は終了いたしました。")
+    st.stop()
+
+selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
+current_route = routes[selected_idx]
+
+dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
+arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
+
+hero_html = generate_hero_timer_html(
+    target_timestamp_ms=current_route["departure_timestamp_ms"],
+    dept_station=dept_station,
+    arrv_station=arrv_station,
+    dept_time=current_route["departure_time"],
+    arrv_time=current_route["arrival_time"],
+    total_minutes=current_route["total_minutes"],
+    last_train_dept=last_train["departure_time"],
+    last_train_duration=last_train["total_minutes"],
+)
+
+# 独立iframe内での完全自律型クライアント秒針実行
+components.html(hero_html, height=172)
 
 # 2. 【最上部】行き先設定（Segmented Control）＆ ワンタップ反転
 col_dir, col_rev = st.columns([4.0, 1.0])
@@ -1049,21 +1299,6 @@ with col_rev:
         )
         st.session_state["selected_index"] = 0
         st.rerun()
-
-# タイムライン描画用のルート取得
-routes = get_routes(
-    direction=st.session_state["direction"],
-    offset_minutes=st.session_state["offset_minutes"],
-    pace=st.session_state["pace"],
-    now=now_jst
-)
-
-if not routes:
-    st.warning("本日の運行は終了いたしました。")
-    st.stop()
-
-selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
-current_route = routes[selected_idx]
 
 # 4. 【統合メトロ・タイムラインボード】シームレスな1本線インフォグラフィック
 metro_html = """
