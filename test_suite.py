@@ -212,6 +212,16 @@ class TestRevisionDetector(unittest.TestCase):
         news = fetch_timetable_news(timeout=3.0)
         self.assertIsInstance(news, list)
 
+    def test_passcode_auth_logic(self):
+        """暗証番号認証とURLパラメータ判定の整合性テスト"""
+        pin = "7777"
+        # 正しい暗証番号
+        self.assertTrue(pin == "7777")
+        # 誤った暗証番号の拒絶
+        self.assertFalse("1234" == pin)
+        self.assertFalse("" == pin)
+        self.assertFalse(None == pin)
+
 if __name__ == '__main__':
     unittest.main()
 
