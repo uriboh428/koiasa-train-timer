@@ -857,7 +857,8 @@ if not st.session_state["authenticated"]:
         <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
-        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">恋朝トレインタイマー</h2>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.0 (最新稼働版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
