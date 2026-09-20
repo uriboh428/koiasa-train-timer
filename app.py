@@ -925,7 +925,7 @@ if credentials is None:
             else:
                 if save_auth_credentials(setup_pass):
                     st.session_state["authenticated"] = True
-                    st.session_state["is_admin"] = True
+                    st.session_state["is_admin"] = False
                     sec_mgr.record_success()
                     st.success("✅ パスワードを設定しました。アプリを起動します...")
                     st.rerun()
@@ -990,7 +990,7 @@ if not st.session_state["authenticated"]:
         if submitted and not is_locked:
             if verify_password(input_pass, credentials["hash"], credentials["salt"]):
                 st.session_state["authenticated"] = True
-                st.session_state["is_admin"] = True
+                st.session_state["is_admin"] = False
                 sec_mgr.record_success()
                 st.rerun()
             else:
@@ -1338,22 +1338,68 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             format_func=lambda x: pace_map.get(x, x),
             index=0 if st.session_state["pace"] == "normal" else 1 if st.session_state["pace"] == "fast" else 2
         )
-    # ==========================================
-    # 管理者権限（Admin Role）による保護
-    # ==========================================
-    if st.session_state.get("is_admin", False):
-        st.markdown("---")
-        st.markdown("""
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:0.85rem; font-weight:800; color:#004B73; display:flex; align-items:center; gap:5px;">
-                <span class="material-symbols-outlined" style="font-size:18px; color:#0284C7;">admin_panel_settings</span>
-                <span>管理者専用メニュー</span>
-            </div>
-            <span style="font-size:0.65rem; color:#059669; background:#ECFDF5; border:1px solid #A7F3D0; padding:2px 8px; border-radius:9999px; font-weight:700;">管理者認証済み 🔓</span>
+
+
+# 終電詳細カード（折りたたみ）
+with st.expander(f"🌙 終電のご案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
+    if last_train["is_expired"]:
+        st.markdown(f"<div style='font-size:0.8rem; color:#64748B;'>本日の運行は終了いたしました（始発 {last_train['first_train_time']}）</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="font-size:0.8rem; color:#0F172A; line-height:1.6;">
+            <strong>{last_train['departure_station']} {last_train['departure_time']}発 → {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 {last_train['total_minutes']}分）<br>
+            <span style="font-size:0.72rem; color:#64748B;">ルート: {escape_text(last_train['route_summary'])}</span>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:4px;'>🔑 パスワードの変更</div>", unsafe_allow_html=True)
+# ダイヤ改正ステータス（通知があれば表示）
+if revision_info.get("has_alert"):
+    announcements_html = ""
+    for ann in revision_info.get("announcements", []):
+        t = escape_text(ann.get("title", ""))
+        l = ann.get("link", "")
+        d = escape_text(ann.get("pub_date_display", ""))
+        link_tag = f"<a href='{l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:600;'>{t}</a>" if is_safe_url(l) else t
+        announcements_html += f"<div style='font-size:0.72rem; margin-top:2px;'>・{link_tag} ({d})</div>"
+
+    st.markdown(f"""
+    <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:8px 12px; margin:8px 0; font-size:0.75rem;">
+        <div style="font-weight:700; color:#B45309; display:flex; align-items:center; gap:4px;">
+            <span>●</span>{escape_text(revision_info['status_label'])}
+        </div>
+        {announcements_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+# 運行情報インスペクター（各社公式リアルタイム情報）
+with st.expander("🚆 路線運行情報（各社公式リアルタイム速報）", expanded=False):
+    st.markdown("""
+    <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px; line-height:1.5;">
+        ※本アプリは所定時刻表（公式ダイヤ）に基づいてご案内しています。事故・遅延・運転見合わせなどの最新の運行状況は、以下の各鉄道会社公式ページにてご確認ください。
+    </div>
+    """, unsafe_allow_html=True)
+    for line in LINE_INFO:
+        col_name, col_link = st.columns([3, 2])
+        with col_name:
+            st.markdown(f"<div style='font-size:0.82rem; font-weight:700; color:#0F172A; padding:4px 0;'>{escape_text(line['name'])} <span style='font-size:0.7rem; color:#64748B; font-weight:500;'>({escape_text(line['operator'])})</span></div>", unsafe_allow_html=True)
+        with col_link:
+            if is_safe_url(line['url']):
+                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='display:inline-block; width:100%; text-align:center; background:#F8FAFC; border:1px solid #CBD5E1; color:#0284C7; font-size:0.75rem; font-weight:600; padding:4px 8px; border-radius:8px; text-decoration:none;'>公式情報 ↗</a>", unsafe_allow_html=True)
+
+# ==========================================
+# 管理者専用エリア（ロール保護・完全分離設計）
+# ==========================================
+if st.session_state.get("is_admin", False):
+    with st.expander("🛠️ 管理者メニュー（管理者認証済み 🔓）", expanded=True):
+        col_adm_head1, col_adm_head2 = st.columns([3, 2])
+        with col_adm_head1:
+            st.markdown("<div style='font-size:0.75rem; color:#059669; font-weight:700; padding:6px 0;'>🔓 管理者権限でロック解除中</div>", unsafe_allow_html=True)
+        with col_adm_head2:
+            if st.button("🔒 管理者モード終了", key="btn_exit_admin_top", use_container_width=True, help="一般画面に戻します（管理メニューを隠します）"):
+                st.session_state["is_admin"] = False
+                st.rerun()
+
+        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#334155; margin:8px 0 4px 0;'>🔑 パスワードの変更</div>", unsafe_allow_html=True)
         with st.form("change_password_form", clear_on_submit=True):
             cur_pwd = st.text_input("現在のパスワード", type="password", placeholder="現在のパスワード")
             new_pwd = st.text_input("新しいパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
@@ -1514,79 +1560,21 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
                 st.cache_data.clear()
                 st.rerun()
 
-        col_adm_act1, col_adm_act2 = st.columns([1, 1])
-        with col_adm_act1:
-            if st.button("🔒 管理者モードを終了", key="btn_exit_admin", use_container_width=True, help="一般画面に戻します"):
-                st.session_state["is_admin"] = False
-                st.rerun()
-        with col_adm_act2:
-            if st.button("🔒 画面ロック", key="btn_logout_in_expander", use_container_width=True, help="画面をロックしてパスワード入力画面に戻す"):
-                st.session_state["authenticated"] = False
-                st.session_state["is_admin"] = False
-                st.rerun()
+else:
+    # ご家族（一般モード）向け：危険な管理操作は完全非表示
+    with st.expander("🔒 管理者メニュー（パスワード認証）", expanded=False):
+        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:8px;'>パスワード変更や共有URLの管理を行うには、管理者パスワードを入力してください。</p>", unsafe_allow_html=True)
+        with st.form("admin_unlock_form", clear_on_submit=True):
+            admin_input = st.text_input("管理者パスワード", type="password", placeholder="パスワードを入力")
+            admin_submit = st.form_submit_button("認証してロック解除 🔓", use_container_width=True, type="primary")
 
-    else:
-        # ご家族（一般モード）向け：危険な管理操作は完全非表示
-        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-        with st.expander("🔒 管理者メニュー（パスワード認証）", expanded=False):
-            st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:8px;'>パスワード変更や共有URLの管理を行うには、管理者パスワードを入力してください。</p>", unsafe_allow_html=True)
-            with st.form("admin_unlock_form", clear_on_submit=True):
-                admin_input = st.text_input("管理者パスワード", type="password", placeholder="パスワードを入力")
-                admin_submit = st.form_submit_button("認証してロック解除 🔓", use_container_width=True, type="primary")
-
-                if admin_submit:
-                    if credentials and verify_password(admin_input, credentials["hash"], credentials["salt"]):
-                        st.session_state["is_admin"] = True
-                        st.success("✅ 管理者認証に成功しました！")
-                        st.rerun()
-                    else:
-                        st.error("❌ パスワードが正しくありません。")
-
-# 終電詳細カード（折りたたみ）
-with st.expander(f"🌙 終電のご案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
-    if last_train["is_expired"]:
-        st.markdown(f"<div style='font-size:0.8rem; color:#64748B;'>本日の運行は終了いたしました（始発 {last_train['first_train_time']}）</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div style="font-size:0.8rem; color:#0F172A; line-height:1.6;">
-            <strong>{last_train['departure_station']} {last_train['departure_time']}発 → {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 {last_train['total_minutes']}分）<br>
-            <span style="font-size:0.72rem; color:#64748B;">ルート: {escape_text(last_train['route_summary'])}</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ダイヤ改正ステータス（通知があれば表示）
-if revision_info.get("has_alert"):
-    announcements_html = ""
-    for ann in revision_info.get("announcements", []):
-        t = escape_text(ann.get("title", ""))
-        l = ann.get("link", "")
-        d = escape_text(ann.get("pub_date_display", ""))
-        link_tag = f"<a href='{l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:600;'>{t}</a>" if is_safe_url(l) else t
-        announcements_html += f"<div style='font-size:0.72rem; margin-top:2px;'>・{link_tag} ({d})</div>"
-
-    st.markdown(f"""
-    <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:8px 12px; margin:8px 0; font-size:0.75rem;">
-        <div style="font-weight:700; color:#B45309; display:flex; align-items:center; gap:4px;">
-            <span>●</span>{escape_text(revision_info['status_label'])}
-        </div>
-        {announcements_html}
-    </div>
-    """, unsafe_allow_html=True)
-
-# 運行情報インスペクター（各社公式リアルタイム情報）
-with st.expander("🚆 路線運行情報（各社公式リアルタイム速報）", expanded=False):
-    st.markdown("""
-    <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px; line-height:1.5;">
-        ※本アプリは所定時刻表（公式ダイヤ）に基づいてご案内しています。事故・遅延・運転見合わせなどの最新の運行状況は、以下の各鉄道会社公式ページにてご確認ください。
-    </div>
-    """, unsafe_allow_html=True)
-    for line in LINE_INFO:
-        col_name, col_link = st.columns([3, 2])
-        with col_name:
-            st.markdown(f"<div style='font-size:0.82rem; font-weight:700; color:#0F172A; padding:4px 0;'>{escape_text(line['name'])} <span style='font-size:0.7rem; color:#64748B; font-weight:500;'>({escape_text(line['operator'])})</span></div>", unsafe_allow_html=True)
-        with col_link:
-            if is_safe_url(line['url']):
-                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='display:inline-block; width:100%; text-align:center; background:#F8FAFC; border:1px solid #CBD5E1; color:#0284C7; font-size:0.75rem; font-weight:600; padding:4px 8px; border-radius:8px; text-decoration:none;'>公式情報 ↗</a>", unsafe_allow_html=True)
+            if admin_submit:
+                if credentials and verify_password(admin_input, credentials["hash"], credentials["salt"]):
+                    st.session_state["is_admin"] = True
+                    st.success("✅ 管理者認証に成功しました！")
+                    st.rerun()
+                else:
+                    st.error("❌ パスワードが正しくありません。")
 
 st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 col_act1, col_act2 = st.columns([1, 1])
