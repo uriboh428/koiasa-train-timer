@@ -33,6 +33,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from transit_engine import get_default_direction
+
 # 日本標準時（JST: UTC+9）を厳格に定義（クラウドサーバーUTC対応）
 JST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -839,7 +841,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.2 (スマホ最適化UI版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.3 (時間連動スマートデフォルト版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -881,8 +883,11 @@ if not st.session_state["authenticated"]:
     """, unsafe_allow_html=True)
     st.stop()
 
+# 日本標準時（JST）の現在時刻
+now_jst = datetime.datetime.now(JST)
+
 if "direction" not in st.session_state:
-    st.session_state["direction"] = "koigakubo_to_asakadai"
+    st.session_state["direction"] = get_default_direction(now_jst)
 if "offset_minutes" not in st.session_state:
     st.session_state["offset_minutes"] = 0
 if "pace" not in st.session_state:
@@ -890,21 +895,15 @@ if "pace" not in st.session_state:
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = 0
 
-# 日本標準時（JST）の現在時刻
-now_jst = datetime.datetime.now(JST)
-
 # ----------------------------------------------------
 # 1. 【最上部】行き先設定（堅牢なステートレス・ボタングループ）
 # ----------------------------------------------------
-if "direction" not in st.session_state:
-    st.session_state["direction"] = "koigakubo_to_asakadai"
-
 is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 
 st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
     <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.2 (スマホ最適化UI版)</span>
+    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.3 (時間連動スマートデフォルト版)</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1576,7 +1575,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.2 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.3 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)

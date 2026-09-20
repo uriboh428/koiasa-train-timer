@@ -22,6 +22,7 @@ from transit_engine import (
     calculate_asakadai_to_koigakubo,
     get_routes,
     get_last_train_info,
+    get_default_direction,
     escape_text,
     is_safe_url,
 )
@@ -99,6 +100,40 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(result["seconds_until_departure"], 420)
         self.assertIn("departure_timestamp_ms", result)
         self.assertGreater(result["departure_timestamp_ms"], 0)
+
+    def test_default_direction_by_time(self):
+        """時間帯に応じたデフォルト行き先自動判定（1:00-12:00恋ヶ窪発、12:01-24:59朝霞台発）の境界値検証"""
+        # 1. 01:00 (朝の開始境界) -> 恋ヶ窪 ➡ 朝霞台
+        t_0100 = datetime.datetime(2026, 9, 20, 1, 0, 0)
+        self.assertEqual(get_default_direction(t_0100), "koigakubo_to_asakadai")
+
+        # 2. 08:30 (出勤ラッシュ) -> 恋ヶ窪 ➡ 朝霞台
+        t_0830 = datetime.datetime(2026, 9, 20, 8, 30, 0)
+        self.assertEqual(get_default_direction(t_0830), "koigakubo_to_asakadai")
+
+        # 3. 12:00 (正午境界値) -> 恋ヶ窪 ➡ 朝霞台
+        t_1200 = datetime.datetime(2026, 9, 20, 12, 0, 0)
+        self.assertEqual(get_default_direction(t_1200), "koigakubo_to_asakadai")
+
+        # 4. 12:01 (午後切り替え境界) -> 朝霞台 ➡ 恋ヶ窪
+        t_1201 = datetime.datetime(2026, 9, 20, 12, 1, 0)
+        self.assertEqual(get_default_direction(t_1201), "asakadai_to_koigakubo")
+
+        # 5. 18:00 (夕方・帰宅ラッシュ) -> 朝霞台 ➡ 恋ヶ窪
+        t_1800 = datetime.datetime(2026, 9, 20, 18, 0, 0)
+        self.assertEqual(get_default_direction(t_1800), "asakadai_to_koigakubo")
+
+        # 6. 23:59 (深夜前) -> 朝霞台 ➡ 恋ヶ窪
+        t_2359 = datetime.datetime(2026, 9, 20, 23, 59, 0)
+        self.assertEqual(get_default_direction(t_2359), "asakadai_to_koigakubo")
+
+        # 7. 00:00 (日付跨ぎ) -> 朝霞台 ➡ 恋ヶ窪 (24:00相当)
+        t_0000 = datetime.datetime(2026, 9, 20, 0, 0, 0)
+        self.assertEqual(get_default_direction(t_0000), "asakadai_to_koigakubo")
+
+        # 8. 00:59 (深夜最終境界 24:59相当) -> 朝霞台 ➡ 恋ヶ窪
+        t_0059 = datetime.datetime(2026, 9, 20, 0, 59, 0)
+        self.assertEqual(get_default_direction(t_0059), "asakadai_to_koigakubo")
 
     def test_get_routes(self):
         """get_routes関数が複数便を正しく生成するか"""
@@ -415,11 +450,12 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記が Ver 3.2 に統一されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記が Ver 3.3 に統一されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("Ver 3.2", content, "app.py に Ver 3.2 が含まれている必要があります")
+        self.assertIn("Ver 3.3", content, "app.py に Ver 3.3 が含まれている必要があります")
+        self.assertNotIn("Ver 3.2", content, "app.py に古い Ver 3.2 が残っていてはいけません")
         self.assertNotIn("Ver 3.1", content, "app.py に古い Ver 3.1 が残っていてはいけません")
         self.assertNotIn("Ver 3.0", content, "app.py に古い Ver 3.0 が残っていてはいけません")
         self.assertNotIn("Ver 2.9", content, "app.py に古い Ver 2.9 が残っていてはいけません")

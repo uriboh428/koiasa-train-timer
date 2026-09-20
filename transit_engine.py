@@ -32,6 +32,22 @@ from timetable_data import (
     KOKUBUNJI_SEIBU_DOWN,
 )
 
+def get_default_direction(now: Optional[datetime.datetime] = None) -> str:
+    """
+    アクセス時刻（JST）に応じたスマートなデフォルト行き先を判定
+    - 01:00 〜 12:00: 「恋ヶ窪 ➡ 朝霞台」（午前・出勤時間帯）
+    - 12:01 〜 24:59（翌00:59）: 「朝霞台 ➡ 恋ヶ窪」（午後・帰宅時間帯・深夜便）
+    """
+    if now is None:
+        now = datetime.datetime.now(JST)
+    mins = now.hour * 60 + now.minute
+    # 01:00 = 60分, 12:00 = 720分
+    if 60 <= mins <= 720:
+        return "koigakubo_to_asakadai"
+    else:
+        return "asakadai_to_koigakubo"
+
+
 def find_next_departure(schedule: Dict[int, List[int]], after_time: datetime.datetime) -> Optional[datetime.datetime]:
     """指定時刻以降で最も近い発車時刻を検索"""
     current_hour = after_time.hour

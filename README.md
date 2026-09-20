@@ -1,10 +1,10 @@
 # 🚆 恋朝トレインタイマー (Koiasa Train Timer)
 ### 恋ヶ窪 ⇔ 朝霞台 リアルタイム電車ナビゲーション・ダッシュボード
-**最新バージョン: Ver 3.2 (スマホ最適化UI ＆ 高度セキュリティ版)**
+**最新バージョン: Ver 3.3 (時間連動スマートデフォルト ＆ スマホ最適化UI版)**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests Passing](https://img.shields.io/badge/tests-28%2F28%20passing-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-29%2F29%20passing-brightgreen.svg)]()
 [![Security](https://img.shields.io/badge/Security-PBKDF2%20%26%2096bit%20Token-059669.svg)]()
 [![UI/UX](https://img.shields.io/badge/Design-Mobile%20First%2048px-0071A4.svg)]()
 
@@ -52,8 +52,9 @@ flowchart TD
     V3["【Ver 2.6〜2.7】PBKDF2暗号化・二段階ロック・96bitワンタップURL新設"]
     V4["【Ver 2.8〜3.0】RCA障害対策（iframe分離コピーボタン復旧・全構文自動検査）"]
     V5["【Ver 3.1〜3.2】Streamlit制約両立・URL即時再発行・スマホ特化UI全面刷新"]
+    V6["【Ver 3.3】時間連動スマートデフォルト（朝は恋ヶ窪発、昼以降は朝霞台発を自動選択）"]
 
-    V1 --> V2 --> V3 --> V4 --> V5
+    V1 --> V2 --> V3 --> V4 --> V5 --> V6
 ```
 
 * **Ver 1.0 (2026.03)**: 初期MVP完成。外部APIに依存しない公式ダイヤグラム内包型エンジンを構築。
@@ -61,7 +62,8 @@ flowchart TD
 * **Ver 2.6〜2.7**: 家族利用に向けたセキュリティ強化。平文パラメータを完全撤廃し、96bit暗号トークンによる「ワンタップ起動URL」を開発。
 * **Ver 2.8〜3.0**: コピーボタン無反応障害の根本原因（Streamlitサニタイザーによるイベント削除）を究明し、`components.html`（独立iframe）へ完全移行。全Pythonファイルの静的構文コンパイル検査を義務化。
 * **Ver 3.1**: Streamlit Cloud のPrivate枠制約（1アカウント1つまで）に配慮し、既存株アプリとの干渉を完全回避する `robots: noindex` 検索遮断を採用。URL即時再発行・失効ボタンを新設。
-* **Ver 3.2 (最新版)**: スマートフォン特化UI/UXを全面刷新。Apple HIG準拠の48px大型ボタン、2.85rem特大カウントダウン、2段組便比較チップを配備。
+* **Ver 3.2**: スマートフォン特化UI/UXを全面刷新。Apple HIG準拠の48px大型ボタン、2.85rem特大カウントダウン、2段組便比較チップを配備。
+* **Ver 3.3 (最新版)**: 時間連動スマートデフォルト機能。アクセス時刻（JST）に応じて、1:00〜12:00は「恋ヶ窪 ➡ 朝霞台」（出勤便）、12:01〜24:59（翌0:59）は「朝霞台 ➡ 恋ヶ窪」（帰宅・深夜便）を自動選択。ワンアクションで即座に目的の電車情報を確認可能に。
 
 ---
 
