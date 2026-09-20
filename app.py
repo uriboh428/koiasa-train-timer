@@ -788,18 +788,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-from streamlit_cookies_controller import CookieController
+try:
+    from streamlit_cookies_controller import CookieController
+    cookie_controller = CookieController()
+except Exception:
+    cookie_controller = None
 
-# ----------------------------------------------------
-# サイバーセキュリティ認証システム（グローバル共有ロック・暗号トークンURL）
-# ＋ 端末登録システム（電子的な通行証 Cookie）
-# ----------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 sec_mgr = GlobalSecurityManager.get_instance()
 credentials = load_auth_credentials()
-cookie_controller = CookieController()
 
 # A. 初回起動モード（パスワード未設定時）：初回セットアップ画面
 if credentials is None:
@@ -842,10 +841,14 @@ if credentials is None:
 # B. パスワード設定済みの場合：セキュアトークンURL または 端末Cookie または URLパラメータ自動認証
 if credentials and not st.session_state["authenticated"]:
     # 0) 端末登録Cookieの確認 (電子通行証)
-    device_cookie = cookie_controller.get("koiasa_device_pass")
-    if device_cookie and verify_secure_token(str(device_cookie), credentials["salt"], credentials["hash"]):
-        st.session_state["authenticated"] = True
-        sec_mgr.record_success()
+    if cookie_controller is not None:
+        try:
+            device_cookie = cookie_controller.get("koiasa_device_pass")
+            if device_cookie and verify_secure_token(str(device_cookie), credentials["salt"], credentials["hash"]):
+                st.session_state["authenticated"] = True
+                sec_mgr.record_success()
+        except Exception:
+            pass
 
     # 1) 推測不能な暗号アクセストークンによる認証 (?token=...)
     query_token = st.query_params.get("token")
@@ -896,8 +899,12 @@ if not st.session_state["authenticated"]:
                 sec_mgr.record_success()
                 
                 # 発行: 端末登録用の電子通行証 (Cookie) を発行（有効期限10年）
-                device_token = get_secure_token(credentials["salt"], credentials["hash"])
-                cookie_controller.set("koiasa_device_pass", device_token, max_age=315360000)
+                if cookie_controller is not None:
+                    try:
+                        device_token = get_secure_token(credentials["salt"], credentials["hash"])
+                        cookie_controller.set("koiasa_device_pass", device_token, max_age=315360000)
+                    except Exception:
+                        pass
                 
                 st.rerun()
             else:
@@ -928,33 +935,41 @@ if "selected_index" not in st.session_state:
 now_jst = datetime.datetime.now(JST)
 
 # ----------------------------------------------------
-# 1. 【最上部】行き先設定（Segmented Control + 反転ボタン）
+# 1. 【最上部】行き先設定（堅牢なステートレス・ボタングループ）
 # ----------------------------------------------------
 if "direction" not in st.session_state:
     st.session_state["direction"] = "koigakubo_to_asakadai"
 
-def _on_direction_change():
-    st.session_state["selected_index"] = 0
+is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 
-col_seg, col_rev = st.columns([4, 1])
-with col_seg:
-    _sel = st.segmented_control(
-        "行き先",
-        options=["koigakubo_to_asakadai", "asakadai_to_koigakubo"],
-        format_func=lambda x: "恋ヶ窪 → 朝霞台" if x == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪",
-        key="direction",
-        on_change=_on_direction_change,
-        selection_mode="single",
-        label_visibility="collapsed"
-    )
-    # Prevent deselection error
-    if _sel is None:
-        st.session_state["direction"] = "koigakubo_to_asakadai"
+col_d1, col_d2, col_rv = st.columns([5, 5, 2])
+with col_d1:
+    if st.button(
+        "恋ヶ窪 ➡ 朝霞台",
+        key="btn_dir_k2a",
+        type="primary" if is_k2a else "secondary",
+        use_container_width=True,
+    ):
+        if not is_k2a:
+            st.session_state["direction"] = "koigakubo_to_asakadai"
+            st.session_state["selected_index"] = 0
+            st.rerun()
 
-with col_rev:
-    if st.button("⇅ 反転", use_container_width=True):
-        new_dir = "asakadai_to_koigakubo" if st.session_state["direction"] == "koigakubo_to_asakadai" else "koigakubo_to_asakadai"
-        st.session_state["direction"] = new_dir
+with col_d2:
+    if st.button(
+        "朝霞台 ➡ 恋ヶ窪",
+        key="btn_dir_a2k",
+        type="primary" if not is_k2a else "secondary",
+        use_container_width=True,
+    ):
+        if is_k2a:
+            st.session_state["direction"] = "asakadai_to_koigakubo"
+            st.session_state["selected_index"] = 0
+            st.rerun()
+
+with col_rv:
+    if st.button("⇄ 反転", key="btn_dir_rev", use_container_width=True):
+        st.session_state["direction"] = "asakadai_to_koigakubo" if is_k2a else "koigakubo_to_asakadai"
         st.session_state["selected_index"] = 0
         st.rerun()
 
@@ -982,7 +997,7 @@ current_route = routes[selected_idx]
 dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
 arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
 
-@st.fragment(run_every=datetime.timedelta(seconds=1))
+@st.fragment(run_every=1)
 def render_hero_timer_fragment(
     dept_timestamp_ms: int,
     dept_station: str,
@@ -993,7 +1008,8 @@ def render_hero_timer_fragment(
     last_train_dept: str,
     last_train_duration: int,
 ):
-    now_ms = get_timestamp_ms(datetime.datetime.now(JST))
+    now_dt = datetime.datetime.now(JST)
+    now_ms = get_timestamp_ms(now_dt)
     left_sec = max(0, (dept_timestamp_ms - now_ms) // 1000)
     min_left = left_sec // 60
     sec_left = left_sec % 60
@@ -1020,8 +1036,7 @@ def render_hero_timer_fragment(
         badge_class = "badge-normal"
         badge_text = "NEXT DEPARTURE"
 
-    now = datetime.datetime.now(JST)
-    clock_str = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}"
+    clock_str = f"{now_dt.hour:02d}:{now_dt.minute:02d}:{now_dt.second:02d}"
 
     html_snippet = f"""
     <div class="top-nav">
@@ -1033,7 +1048,7 @@ def render_hero_timer_fragment(
             <span class="live-dot"></span>
             <span style="font-size:0.72rem; font-weight:600; color:#334155;">定刻ダイヤ</span>
             <span style="color:#CBD5E1; font-size:0.7rem; margin:0 1px;">|</span>
-            <span class="live-clock">{clock_str}</span>
+            <span class="live-clock" id="hero-clock-str">{clock_str}</span>
         </div>
     </div>
 
@@ -1045,7 +1060,7 @@ def render_hero_timer_fragment(
         <div class="hero-timer-grid">
             <div>
                 <div class="hero-digits">
-                    <span>{min_str}</span><span class="unit">m</span><span>{sec_str}</span><span class="unit">s</span>
+                    <span id="hero-min-str">{min_str}</span><span class="unit">m</span><span id="hero-sec-str">{sec_str}</span><span class="unit">s</span>
                 </div>
                 <div style="font-size:0.7rem; color:#94A3B8; margin-top:3px; font-weight:500;">
                     終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train_dept}</span> 発（所要 {last_train_duration}分）
@@ -1065,6 +1080,31 @@ def render_hero_timer_fragment(
             </div>
         </div>
     </div>
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="
+        (function() {{
+            var target = {dept_timestamp_ms};
+            var serverMs = {now_ms};
+            var offset = Date.now() - serverMs;
+            function update() {{
+                var now = Date.now() - offset;
+                var left = Math.max(0, Math.floor((target - now) / 1000));
+                var m = Math.floor(left / 60);
+                var s = left % 60;
+                var mEl = document.getElementById('hero-min-str');
+                var sEl = document.getElementById('hero-sec-str');
+                if (mEl) mEl.textContent = (m < 10 ? '0' : '') + m;
+                if (sEl) sEl.textContent = (s < 10 ? '0' : '') + s;
+                var cEl = document.getElementById('hero-clock-str');
+                if (cEl) {{
+                    var d = new Date(now);
+                    var ch = d.getHours(); var cm = d.getMinutes(); var cs = d.getSeconds();
+                    cEl.textContent = (ch < 10 ? '0' : '') + ch + ':' + (cm < 10 ? '0' : '') + cm + ':' + (cs < 10 ? '0' : '') + cs;
+                }}
+            }}
+            if (window._heroTimerInterval) clearInterval(window._heroTimerInterval);
+            window._heroTimerInterval = setInterval(update, 1000);
+        }})();
+    " style="display:none;" />
     """
     st.markdown(html_snippet, unsafe_allow_html=True)
 
