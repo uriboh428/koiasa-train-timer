@@ -1,12 +1,12 @@
 # 🚆 恋朝トレインタイマー (Koiasa Train Timer)
 ### 恋ヶ窪 ⇔ 朝霞台 リアルタイム電車ナビゲーション・ダッシュボード
-**最新バージョン: Ver 3.4 (Goodpatch洗練デザイン ＆ 時間連動スマートデフォルト版)**
+**最新バージョン: Ver 3.5 (管理者権限保護 ＆ 家族安心版)**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests Passing](https://img.shields.io/badge/tests-29%2F29%20passing-brightgreen.svg)]()
-[![Security](https://img.shields.io/badge/Security-PBKDF2%20%26%2096bit%20Token-059669.svg)]()
-[![UI/UX](https://img.shields.io/badge/Design-Goodpatch%20Frosted%20Metro-0071A4.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-30%2F30%20passing-brightgreen.svg)]()
+[![Security](https://img.shields.io/badge/Security-Admin%20Role%20Separation-059669.svg)]()
+[![UI/UX](https://img.shields.io/badge/Design-Goodpatch%20Refined%20UI-0071A4.svg)]()
 
 ---
 
@@ -38,6 +38,9 @@
    * 「+5分後」「+10分後」の出発時間変更や、「急ぎ足」「標準」「ゆったり」の歩行速度調整が可能。
 8. **🛡️ 外部クラウド制約との完全両立（noindex検索遮断）**:
    * Streamlit Community Cloud のプライベート枠上限に干渉しない公開枠を維持しつつ、HTMLヘッダーでGoogle検索を完全に遮断。
+9. **🔐 管理者権限保護 ＆ 家族安心設計 (Ver 3.5)**:
+   * ご家族に共有したワンタップ起動URL（一般セッション）では、パスワード変更や共有URL再発行、Secrets設定などの管理操作を**画面上から完全に非表示（隠蔽）**。
+   * ご家族が誤って設定を変更したりURLを失効させてしまうリスクを100%排除。管理者が操作したい場合は、設定欄の「🔒 管理者メニュー」からパスワードを1回入力するだけで安全にアンロック可能。
 
 ---
 
@@ -54,8 +57,9 @@ flowchart TD
     V5["【Ver 3.1〜3.2】Streamlit制約両立・URL即時再発行・スマホ特化UI全面刷新"]
     V6["【Ver 3.3】時間連動スマートデフォルト（朝は恋ヶ窪発、昼以降は朝霞台発を自動選択）"]
     V7["【Ver 3.4】Goodpatch流UI/UX全面刷新（統合トップバー・すりガラス調カード・路線図純化）"]
+    V8["【Ver 3.5】管理者権限保護＆家族安心版（ロール分離・管理操作の完全隠蔽・オンデマンド認証）"]
 
-    V1 --> V2 --> V3 --> V4 --> V5 --> V6 --> V7
+    V1 --> V2 --> V3 --> V4 --> V5 --> V6 --> V7 --> V8
 ```
 
 * **Ver 1.0 (2026.03)**: 初期MVP完成。外部APIに依存しない公式ダイヤグラム内包型エンジンを構築。
@@ -65,7 +69,8 @@ flowchart TD
 * **Ver 3.1**: Streamlit Cloud のPrivate枠制約（1アカウント1つまで）に配慮し、既存株アプリとの干渉を完全回避する `robots: noindex` 検索遮断を採用。URL即時再発行・失効ボタンを新設。
 * **Ver 3.2**: スマートフォン特化UI/UXを全面刷新。Apple HIG準拠の48px大型ボタン、2.85rem特大カウントダウン、2段組便比較チップを配備。
 * **Ver 3.3**: 時間連動スマートデフォルト機能。アクセス時刻（JST）に応じて、1:00〜12:00は「恋ヶ窪 ➡ 朝霞台」（出勤便）、12:01〜24:59（翌0:59）は「朝霞台 ➡ 恋ヶ窪」（帰宅・深夜便）を自動選択。ワンアクションで即座に目的の電車情報を確認可能に。
-* **Ver 3.4 (最新版)**: Goodpatch流UI/UX全面刷新。人間中心設計（HCD）に基づき、ブランド統合トップバー、すりガラス調ディープオーシャン・ヒーローカード、路線カラーメトロインフォグラフィック、洗練されたフォームUIを配備。日常のスマホ利用における「使いたい」「洗練されている」体験を極限まで追求。
+* **Ver 3.4**: Goodpatch流UI/UX全面刷新。人間中心設計（HCD）に基づき、ブランド統合トップバー、すりガラス調ディープオーシャン・ヒーローカード、路線カラーメトロインフォグラフィック、洗練されたフォームUIを配備。
+* **Ver 3.5 (最新版)**: 管理者権限保護＆家族安心版。ご家族に共有したワンタップURLセッションではパスワード変更・共有URL再発行・Secrets設定などの管理機能を完全に隠蔽。管理者のパスワード認証によってのみ利用可能とするロール分離アーキテクチャを確立。
 
 ---
 

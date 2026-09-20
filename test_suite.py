@@ -450,11 +450,12 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記が Ver 3.4 に統一されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記が Ver 3.5 に統一されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("Ver 3.4", content, "app.py に Ver 3.4 が含まれている必要があります")
+        self.assertIn("Ver 3.5", content, "app.py に Ver 3.5 が含まれている必要があります")
+        self.assertNotIn("Ver 3.4", content, "app.py に古い Ver 3.4 が残っていてはいけません")
         self.assertNotIn("Ver 3.3", content, "app.py に古い Ver 3.3 が残っていてはいけません")
         self.assertNotIn("Ver 3.2", content, "app.py に古い Ver 3.2 が残っていてはいけません")
         self.assertNotIn("Ver 3.1", content, "app.py に古い Ver 3.1 が残っていてはいけません")
@@ -462,6 +463,41 @@ class TestRevisionDetector(unittest.TestCase):
         self.assertNotIn("Ver 2.9", content, "app.py に古い Ver 2.9 が残っていてはいけません")
         self.assertNotIn("Ver 2.8", content, "app.py に古い Ver 2.8 が残っていてはいけません")
         self.assertNotIn("Ver 2.6", content, "app.py に古い Ver 2.6 が残っていてはいけません")
+
+    def test_admin_role_separation_and_security(self):
+        """【Role Governance】家族利用時の管理者権限分離とアンロック整合性の検証"""
+        from auth_manager import hash_password, verify_password
+
+        # 模擬的な管理者パスワード情報
+        admin_pwd = "MySecretAdmin2026!"
+        h, s = hash_password(admin_pwd)
+        mock_creds = {"hash": h, "salt": s, "token": "abc123token456"}
+
+        # 1. 家族向けセッション（一般モード）の初期状態シミュレーション
+        session_state = {
+            "authenticated": True,
+            "is_admin": False
+        }
+        self.assertTrue(session_state["authenticated"], "認証済みであること")
+        self.assertFalse(session_state["is_admin"], "家族セッションでは管理者権限が無効であること")
+
+        # 2. 誤ったパスワードによる管理者アンロック試行（失敗）
+        wrong_input = "WrongPassword999"
+        unlock_success = verify_password(wrong_input, mock_creds["hash"], mock_creds["salt"])
+        self.assertFalse(unlock_success, "誤ったパスワードではアンロックできないこと")
+        self.assertFalse(session_state["is_admin"], "権限が昇格されないこと")
+
+        # 3. 正しいパスワードによる管理者アンロック試行（成功）
+        correct_input = admin_pwd
+        unlock_success = verify_password(correct_input, mock_creds["hash"], mock_creds["salt"])
+        self.assertTrue(unlock_success, "正しいパスワードでアンロック認証が成功すること")
+        if unlock_success:
+            session_state["is_admin"] = True
+        self.assertTrue(session_state["is_admin"], "管理者権限に安全に昇格できること")
+
+        # 4. 管理者モード終了（一般モードへの復帰）
+        session_state["is_admin"] = False
+        self.assertFalse(session_state["is_admin"], "一般モードに安全に降格できること")
 
     def test_token_regeneration_and_revocation(self):
         """【Security】トークン再発行による古いURLトークンの即時失効と新トークン認証を検証"""

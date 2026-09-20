@@ -510,7 +510,7 @@ st.markdown("""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       Goodpatch Neo-Tokyo Metro Design System (Ver 3.4)
+       Goodpatch Neo-Tokyo Metro Design System (Ver 3.5)
        Human-Centered Design / Apple HIG & Linear Precision Spec
        ========================================================================== */
     :root {
@@ -894,6 +894,8 @@ st.markdown("""
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+if "is_admin" not in st.session_state:
+    st.session_state["is_admin"] = False
 
 sec_mgr = GlobalSecurityManager.get_instance()
 credentials = load_auth_credentials()
@@ -923,6 +925,7 @@ if credentials is None:
             else:
                 if save_auth_credentials(setup_pass):
                     st.session_state["authenticated"] = True
+                    st.session_state["is_admin"] = True
                     sec_mgr.record_success()
                     st.success("✅ パスワードを設定しました。アプリを起動します...")
                     st.rerun()
@@ -942,6 +945,7 @@ if credentials and not st.session_state["authenticated"]:
     query_token = st.query_params.get("token")
     if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"], credentials.get("token_salt")):
         st.session_state["authenticated"] = True
+        st.session_state["is_admin"] = False
         sec_mgr.record_success()
         st.query_params.clear()
         st.rerun()
@@ -961,7 +965,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.4 (Goodpatch洗練デザイン版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.5 (管理者権限保護 ＆ 家族安心版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -986,6 +990,7 @@ if not st.session_state["authenticated"]:
         if submitted and not is_locked:
             if verify_password(input_pass, credentials["hash"], credentials["salt"]):
                 st.session_state["authenticated"] = True
+                st.session_state["is_admin"] = True
                 sec_mgr.record_success()
                 st.rerun()
             else:
@@ -1035,7 +1040,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">Ver 3.4 (Goodpatch洗練デザイン版)</span>
+        <span class="version-tag">Ver 3.5 (管理者権限保護 ＆ 家族安心版)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1333,171 +1338,209 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             format_func=lambda x: pace_map.get(x, x),
             index=0 if st.session_state["pace"] == "normal" else 1 if st.session_state["pace"] == "fast" else 2
         )
-    st.markdown("---")
-    st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:6px;'>🔑 パスワードの変更</div>", unsafe_allow_html=True)
-    with st.form("change_password_form", clear_on_submit=True):
-        cur_pwd = st.text_input("現在のパスワード", type="password", placeholder="現在のパスワード")
-        new_pwd = st.text_input("新しいパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
-        new_pwd_conf = st.text_input("新しいパスワード（再確認）", type="password", placeholder="新しいパスワードを再入力")
-        update_btn = st.form_submit_button("パスワードを変更する", use_container_width=True)
-
-        if update_btn:
-            if not credentials or not verify_password(cur_pwd, credentials["hash"], credentials["salt"]):
-                st.error("❌ 現在のパスワードが正しくありません。")
-            elif len(new_pwd) < MIN_PASSWORD_LENGTH:
-                st.error(f"❌ 新しいパスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
-            elif new_pwd != new_pwd_conf:
-                st.error("❌ 新しいパスワードの再確認が一致しません。")
-            else:
-                if save_auth_credentials(new_pwd):
-                    st.success("✅ パスワードを正常に変更しました！次回から新しいパスワードでログインしてください。")
-                else:
-                    st.error("❌ パスワードの保存に失敗しました。")
-
-    st.markdown("---")
-    # セキュア・アクセストークンURL発行
-    if credentials and "token" in credentials:
-        token = credentials["token"]
-        dynamic_url = generate_token_link(token)
-        st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>パスワードを直接入力せず、暗号トークンで安全に開くための専用URLです。認証後はアドレスバーから自動で消去されるため、履歴にも残りません。</p>", unsafe_allow_html=True)
-
-        init_display_url = dynamic_url if dynamic_url.startswith("http") else f"?token={token}"
-
-        iframe_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-            * {{ box-sizing: border-box; }}
-            body {{
-                margin: 0;
-                padding: 0;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                background: transparent;
-            }}
-            .wrap {{
-                display: flex;
-                gap: 8px;
-                align-items: center;
-                background: #FFFFFF;
-                border: 1px solid #CBD5E1;
-                border-radius: 12px;
-                padding: 6px 10px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-            }}
-            input {{
-                flex: 1;
-                border: none;
-                background: transparent;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 0.8rem;
-                color: #334155;
-                outline: none;
-                width: 100%;
-            }}
-            button {{
-                padding: 8px 16px;
-                font-size: 0.8rem;
-                font-weight: 700;
-                color: white;
-                background: linear-gradient(135deg, #004B73 0%, #003350 100%);
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                white-space: nowrap;
-                box-shadow: 0 2px 6px rgba(0, 75, 115, 0.2);
-                transition: all 0.15s ease;
-            }}
-            button:hover {{
-                background: linear-gradient(135deg, #003859 0%, #002238 100%);
-                box-shadow: 0 4px 10px rgba(0, 75, 115, 0.3);
-            }}
-            .toast {{
-                display: none;
-                font-size: 0.74rem;
-                font-weight: 700;
-                color: #065F46;
-                background: #ECFDF5;
-                border: 1px solid #A7F3D0;
-                padding: 6px 10px;
-                border-radius: 8px;
-                margin-top: 6px;
-            }}
-        </style>
-        </head>
-        <body>
-        <div class="wrap">
-            <input type="text" id="targetUrl" readonly value="{init_display_url}" />
-            <button id="copyBtn" onclick="execCopy()">📋 コピー</button>
+    # ==========================================
+    # 管理者権限（Admin Role）による保護
+    # ==========================================
+    if st.session_state.get("is_admin", False):
+        st.markdown("---")
+        st.markdown("""
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:0.85rem; font-weight:800; color:#004B73; display:flex; align-items:center; gap:5px;">
+                <span class="material-symbols-outlined" style="font-size:18px; color:#0284C7;">admin_panel_settings</span>
+                <span>管理者専用メニュー</span>
+            </div>
+            <span style="font-size:0.65rem; color:#059669; background:#ECFDF5; border:1px solid #A7F3D0; padding:2px 8px; border-radius:9999px; font-weight:700;">管理者認証済み 🔓</span>
         </div>
-        <div id="toastMsg" class="toast">✅ クリップボードにコピーしました！ご家族のLINE等に貼り付けてください。</div>
-        <script>
-        function execCopy() {{
-            var inp = document.getElementById('targetUrl');
-            var btn = document.getElementById('copyBtn');
-            var toast = document.getElementById('toastMsg');
-            inp.select();
-            inp.setSelectionRange(0, 99999);
-            var text = inp.value;
+        """, unsafe_allow_html=True)
 
-            function success() {{
-                btn.innerText = '✅ コピー完了!';
-                btn.style.background = '#10B981';
-                toast.style.display = 'block';
-                setTimeout(function() {{
-                    btn.innerText = '📋 コピー';
-                    btn.style.background = '#006699';
-                    toast.style.display = 'none';
-                }}, 4000);
-            }}
+        st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:4px;'>🔑 パスワードの変更</div>", unsafe_allow_html=True)
+        with st.form("change_password_form", clear_on_submit=True):
+            cur_pwd = st.text_input("現在のパスワード", type="password", placeholder="現在のパスワード")
+            new_pwd = st.text_input("新しいパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
+            new_pwd_conf = st.text_input("新しいパスワード（再確認）", type="password", placeholder="新しいパスワードを再入力")
+            update_btn = st.form_submit_button("パスワードを変更する", use_container_width=True)
 
-            if (navigator.clipboard && navigator.clipboard.writeText) {{
-                navigator.clipboard.writeText(text).then(success).catch(function() {{
+            if update_btn:
+                if not credentials or not verify_password(cur_pwd, credentials["hash"], credentials["salt"]):
+                    st.error("❌ 現在のパスワードが正しくありません。")
+                elif len(new_pwd) < MIN_PASSWORD_LENGTH:
+                    st.error(f"❌ 新しいパスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
+                elif new_pwd != new_pwd_conf:
+                    st.error("❌ 新しいパスワードの再確認が一致しません。")
+                else:
+                    if save_auth_credentials(new_pwd):
+                        st.success("✅ パスワードを正常に変更しました！次回から新しいパスワードでログインしてください。")
+                    else:
+                        st.error("❌ パスワードの保存に失敗しました。")
+
+        st.markdown("---")
+        # セキュア・アクセストークンURL発行
+        if credentials and "token" in credentials:
+            token = credentials["token"]
+            dynamic_url = generate_token_link(token)
+            st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#334155; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size:0.73rem; color:#64748B; margin-bottom:6px;'>ご家族に共有するための専用URLです。パスワード入力不要で安全に起動できます。</p>", unsafe_allow_html=True)
+
+            init_display_url = dynamic_url if dynamic_url.startswith("http") else f"?token={token}"
+
+            iframe_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                * {{ box-sizing: border-box; }}
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    background: transparent;
+                }}
+                .wrap {{
+                    display: flex;
+                    gap: 8px;
+                    align-items: center;
+                    background: #FFFFFF;
+                    border: 1px solid #CBD5E1;
+                    border-radius: 12px;
+                    padding: 6px 10px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                }}
+                input {{
+                    flex: 1;
+                    border: none;
+                    background: transparent;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 0.8rem;
+                    color: #334155;
+                    outline: none;
+                    width: 100%;
+                }}
+                button {{
+                    padding: 8px 16px;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    color: white;
+                    background: linear-gradient(135deg, #004B73 0%, #003350 100%);
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    box-shadow: 0 2px 6px rgba(0, 75, 115, 0.2);
+                    transition: all 0.15s ease;
+                }}
+                button:hover {{
+                    background: linear-gradient(135deg, #003859 0%, #002238 100%);
+                    box-shadow: 0 4px 10px rgba(0, 75, 115, 0.3);
+                }}
+                .toast {{
+                    display: none;
+                    font-size: 0.74rem;
+                    font-weight: 700;
+                    color: #065F46;
+                    background: #ECFDF5;
+                    border: 1px solid #A7F3D0;
+                    padding: 6px 10px;
+                    border-radius: 8px;
+                    margin-top: 6px;
+                }}
+            </style>
+            </head>
+            <body>
+            <div class="wrap">
+                <input type="text" id="targetUrl" readonly value="{init_display_url}" />
+                <button id="copyBtn" onclick="execCopy()">📋 コピー</button>
+            </div>
+            <div id="toastMsg" class="toast">✅ クリップボードにコピーしました！ご家族のLINE等に貼り付けてください。</div>
+            <script>
+            function execCopy() {{
+                var inp = document.getElementById('targetUrl');
+                var btn = document.getElementById('copyBtn');
+                var toast = document.getElementById('toastMsg');
+                inp.select();
+                inp.setSelectionRange(0, 99999);
+                var text = inp.value;
+
+                function success() {{
+                    btn.innerText = '✅ コピー完了!';
+                    btn.style.background = '#10B981';
+                    toast.style.display = 'block';
+                    setTimeout(function() {{
+                        btn.innerText = '📋 コピー';
+                        btn.style.background = '#006699';
+                        toast.style.display = 'none';
+                    }}, 4000);
+                }}
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {{
+                    navigator.clipboard.writeText(text).then(success).catch(function() {{
+                        document.execCommand('copy');
+                        success();
+                    }});
+                }} else {{
                     document.execCommand('copy');
                     success();
-                }});
-            }} else {{
-                document.execCommand('copy');
-                success();
+                }}
             }}
-        }}
-        </script>
-        </body>
-        </html>
-        """
-        st.markdown("<div style='font-size:0.75rem; font-weight:600; color:#334155; margin-bottom:4px;'>💡 現在開いているブラウザのアドレスから自動生成された共有URL:</div>", unsafe_allow_html=True)
-        components.html(iframe_html, height=72)
-        st.code(init_display_url, language="text")
-        st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLが確実にコピーされます。")
+            </script>
+            </body>
+            </html>
+            """
+            st.markdown("<div style='font-size:0.75rem; font-weight:600; color:#334155; margin-bottom:4px;'>💡 現在開いているブラウザのアドレスから自動生成された共有URL:</div>", unsafe_allow_html=True)
+            components.html(iframe_html, height=72)
+            st.code(init_display_url, language="text")
+            st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLが確実にコピーされます。")
 
-        # ワンタップURLの即時再発行・失効ボタン
-        if st.button("🔄 共有URLを再発行（古いURLを無効化）", key="btn_regen_token", use_container_width=True, help="万が一の誤送信時などに、古いURLを即座に使えなくして新しいURLを発行します"):
-            regenerate_secure_token()
-            st.success("✅ 新しい共有URLを発行しました！これまでの古いURLはすべて無効化されました。")
-            st.rerun()
+            # ワンタップURLの即時再発行・失効ボタン
+            if st.button("🔄 共有URLを再発行（古いURLを無効化）", key="btn_regen_token", use_container_width=True, help="万が一の誤送信時などに、古いURLを即座に使えなくして新しいURLを発行します"):
+                regenerate_secure_token()
+                st.success("✅ 新しい共有URLを発行しました！これまでの古いURLはすべて無効化されました。")
+                st.rerun()
 
-    st.markdown("---")
-    # Streamlit Cloud Secrets（永続化）ガイド（折りたたみ式で普段は目隠し）
-    if credentials:
-        with st.expander("☁️ クラウド恒久保存（Secrets設定 - 上級者向け）", expanded=False):
-            st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>Streamlit Cloud の再起動時にも設定を100%保持したい場合は、Streamlit管理画面（Settings > Secrets）に以下を貼り付けてください。</p>", unsafe_allow_html=True)
-            secrets_toml = get_secrets_toml_template("", credentials["salt"], credentials.get("token_salt")).replace('""', f'"{credentials["hash"]}"')
-            st.code(secrets_toml, language="toml")
+        st.markdown("---")
+        # Streamlit Cloud Secrets（永続化）ガイド
+        if credentials:
+            with st.expander("☁️ クラウド恒久保存（Secrets設定 - 上級者向け）", expanded=False):
+                st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>Streamlit Cloud の再起動時にも設定を100%保持したい場合は、Streamlit管理画面（Settings > Secrets）に以下を貼り付けてください。</p>", unsafe_allow_html=True)
+                secrets_toml = get_secrets_toml_template("", credentials["salt"], credentials.get("token_salt")).replace('""', f'"{credentials["hash"]}"')
+                st.code(secrets_toml, language="toml")
 
-    st.markdown("---")
-    c_chk1, c_chk2 = st.columns([3, 2])
-    with c_chk1:
-        st.markdown(f"<div style='font-size:0.75rem; color:#64748B; margin-top:6px;'>最終確認: {escape_text(revision_info.get('last_checked_jst', ''))}</div>", unsafe_allow_html=True)
-    with c_chk2:
-        if st.button("🔍 改正ニュース再確認", use_container_width=True, help="最新の発表ニュースを手動でチェック"):
-            st.cache_data.clear()
-            st.rerun()
+        st.markdown("---")
+        c_chk1, c_chk2 = st.columns([3, 2])
+        with c_chk1:
+            st.markdown(f"<div style='font-size:0.75rem; color:#64748B; margin-top:6px;'>最終確認: {escape_text(revision_info.get('last_checked_jst', ''))}</div>", unsafe_allow_html=True)
+        with c_chk2:
+            if st.button("🔍 改正ニュース再確認", use_container_width=True, help="最新の発表ニュースを手動でチェック"):
+                st.cache_data.clear()
+                st.rerun()
 
-    if st.button("🔒 ログアウト（再ロック）", key="btn_logout_in_expander", use_container_width=True, help="画面をロックしてパスワード入力画面に戻す"):
-        st.session_state["authenticated"] = False
-        st.rerun()
+        col_adm_act1, col_adm_act2 = st.columns([1, 1])
+        with col_adm_act1:
+            if st.button("🔒 管理者モードを終了", key="btn_exit_admin", use_container_width=True, help="一般画面に戻します"):
+                st.session_state["is_admin"] = False
+                st.rerun()
+        with col_adm_act2:
+            if st.button("🔒 画面ロック", key="btn_logout_in_expander", use_container_width=True, help="画面をロックしてパスワード入力画面に戻す"):
+                st.session_state["authenticated"] = False
+                st.session_state["is_admin"] = False
+                st.rerun()
+
+    else:
+        # ご家族（一般モード）向け：危険な管理操作は完全非表示
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        with st.expander("🔒 管理者メニュー（パスワード認証）", expanded=False):
+            st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:8px;'>パスワード変更や共有URLの管理を行うには、管理者パスワードを入力してください。</p>", unsafe_allow_html=True)
+            with st.form("admin_unlock_form", clear_on_submit=True):
+                admin_input = st.text_input("管理者パスワード", type="password", placeholder="パスワードを入力")
+                admin_submit = st.form_submit_button("認証してロック解除 🔓", use_container_width=True, type="primary")
+
+                if admin_submit:
+                    if credentials and verify_password(admin_input, credentials["hash"], credentials["salt"]):
+                        st.session_state["is_admin"] = True
+                        st.success("✅ 管理者認証に成功しました！")
+                        st.rerun()
+                    else:
+                        st.error("❌ パスワードが正しくありません。")
 
 # 終電詳細カード（折りたたみ）
 with st.expander(f"🌙 終電のご案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
@@ -1557,7 +1600,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.4 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.5 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
