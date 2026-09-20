@@ -1404,7 +1404,7 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
         st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
         st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>パスワードを直接入力せず、暗号トークンで安全に開くための専用URLです。認証後はアドレスバーから自動で消去されるため、履歴にも残りません。</p>", unsafe_allow_html=True)
 
-        copy_ui_html = f"""
+        copy_template = """
         <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:12px; margin-bottom:8px;">
             <div style="font-size:0.75rem; font-weight:600; color:#334155; margin-bottom:6px;">
                 💡 現在開いているブラウザのアドレスから自動生成された共有URL:
@@ -1412,7 +1412,7 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             <div style="display:flex; gap:8px; align-items:center;">
                 <input type="text" id="live_token_url_input" readonly 
                     style="flex:1; padding:7px 10px; font-size:0.8rem; border:1px solid #94A3B8; border-radius:6px; background:#FFFFFF; color:#0F172A; font-family:monospace;" 
-                    value="{dynamic_url if dynamic_url.startswith('http') else 'URLを検出中...'}" />
+                    value="__DYNAMIC_URL__" />
                 <button type="button" id="copy_live_btn" onclick="copyTokenUrlToClipboard()" 
                     style="padding:7px 16px; font-size:0.8rem; font-weight:bold; color:white; background:#006699; border:none; border-radius:6px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
                     📋 コピー
@@ -1424,59 +1424,61 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
         </div>
         <script>
             (function() {
-                try {{
-                    var tokenVal = "{token}";
+                try {
+                    var tokenVal = "__TOKEN__";
                     var curOrigin = window.location.origin;
                     var curPath = window.location.pathname;
-                    if (!curPath.endsWith('/')) {{
+                    if (!curPath.endsWith('/')) {
                         curPath += '/';
-                    }}
+                    }
                     var computedUrl = curOrigin + curPath + '?token=' + tokenVal;
                     var elem = document.getElementById('live_token_url_input');
-                    if (elem) {{
+                    if (elem) {
                         elem.value = computedUrl;
-                    }}
-                }} catch(err) {{
+                    }
+                } catch(err) {
                     console.error("URL compute error:", err);
-                }}
+                }
             })();
 
-            function copyTokenUrlToClipboard() {{
+            function copyTokenUrlToClipboard() {
                 var inputElem = document.getElementById('live_token_url_input');
                 var alertElem = document.getElementById('copy_success_alert');
-                if (inputElem && inputElem.value) {{
+                if (inputElem && inputElem.value) {
                     var textToCopy = inputElem.value;
-                    if (navigator.clipboard && navigator.clipboard.writeText) {{
-                        navigator.clipboard.writeText(textToCopy).then(function() {{
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(textToCopy).then(function() {
                             showCopySuccess();
-                        }}).catch(function() {{
+                        }).catch(function() {
                             fallbackCopy(inputElem);
-                        }});
-                    }} else {{
+                        });
+                    } else {
                         fallbackCopy(inputElem);
-                    }}
-                }}
-            }}
+                    }
+                }
+            }
 
-            function fallbackCopy(inputElem) {{
+            function fallbackCopy(inputElem) {
                 inputElem.select();
-                try {{
+                try {
                     document.execCommand('copy');
                     showCopySuccess();
-                }} catch(e) {{}}
-            }}
+                } catch(e) {}
+            }
 
-            function showCopySuccess() {{
+            function showCopySuccess() {
                 var alertElem = document.getElementById('copy_success_alert');
-                if (alertElem) {{
+                if (alertElem) {
                     alertElem.style.display = 'block';
-                    setTimeout(function() {{
+                    setTimeout(function() {
                         alertElem.style.display = 'none';
-                    }}, 6000);
-                }}
-            }}
+                    }, 6000);
+                }
+            }
         </script>
         """
+        init_display_url = dynamic_url if dynamic_url.startswith("http") else "URLを検出中..."
+        copy_ui_html = copy_template.replace("__DYNAMIC_URL__", init_display_url).replace("__TOKEN__", token)
         st.markdown(copy_ui_html, unsafe_allow_html=True)
         st.caption("※上の「📋 コピー」ボタンを押してご家族のLINE等に貼り付けると、ご家族は何の登録も不要でワンタップで開けます。")
 
