@@ -922,7 +922,7 @@ is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
     <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#E0F2FE; border:1px solid #BAE6FD; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#0369A1;">Ver 2.8 (品質安定版)</span>
+    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 2.9 (共有完了版)</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1549,7 +1549,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 2.8 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 2.9 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
