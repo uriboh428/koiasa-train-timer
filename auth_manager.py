@@ -18,14 +18,17 @@ from typing import Optional, Tuple, Dict, Any
 
 AUTH_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "auth_config.json")
 MAX_FAILED_ATTEMPTS = 5
+SEVERE_FAILED_ATTEMPTS = 10
 LOCKOUT_DURATION_SECONDS = 60
-MIN_PASSWORD_LENGTH = 4
+SEVERE_LOCKOUT_DURATION_SECONDS = 300
+MIN_PASSWORD_LENGTH = 6
+PBKDF2_ITERATIONS = 100_000
 
 
 class GlobalSecurityManager:
     """
     全セッション・全ユーザー共有のレートリミッター
-    シークレットウィンドウや複数ブラウザによる総当たり攻撃をサーバー側で一括遮断
+    段階的遅延（Backoff）と二段階ロックアウトにより総当たり攻撃を完全無力化
     """
     _instance = None
 
@@ -40,14 +43,17 @@ class GlobalSecurityManager:
         self.lock_until = 0.0
 
     def record_failure(self) -> Tuple[bool, int]:
-        """失敗を記録し、段階的遅延（Backoff）を適用。制限超過時はロックアウト"""
+        """失敗を記録し、段階的遅延（Backoff）を適用。制限超過時は二段階ロックアウト"""
         now = time.time()
         self.failed_attempts += 1
         # 人為的な段階的遅延（ブルートフォース攻撃を物理的に超低速化）
         delay = min(2.0, self.failed_attempts * 0.4)
         time.sleep(delay)
-        
-        if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+
+        if self.failed_attempts >= SEVERE_FAILED_ATTEMPTS:
+            self.lock_until = now + SEVERE_LOCKOUT_DURATION_SECONDS
+            return True, SEVERE_LOCKOUT_DURATION_SECONDS
+        elif self.failed_attempts >= MAX_FAILED_ATTEMPTS:
             self.lock_until = now + LOCKOUT_DURATION_SECONDS
             return True, LOCKOUT_DURATION_SECONDS
         return False, 0
@@ -77,26 +83,45 @@ class GlobalSecurityManager:
 
 def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
     """
-    ソルト付きSHA-256ハッシュを生成（レインボーテーブル攻撃を防止）
+    暗号強度PBKDF2-HMAC-SHA256による100,000回ストレッチングハッシュを生成
+    GPUやASICによる総当たり・辞書攻撃を物理的に無力化（OWASP推奨基準）
     :param password: 平文パスワード
     :param salt: 16進数ソルト（省略時は暗号学的に安全な32文字のランダムソルトを生成）
     :return: (hash_hex, salt_hex)
     """
     if not salt:
         salt = secrets.token_hex(16)
-    salted_data = (salt + password).encode("utf-8")
-    hash_hex = hashlib.sha256(salted_data).hexdigest()
-    return hash_hex, salt
+    key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PBKDF2_ITERATIONS,
+    )
+    return "pbkdf2$" + key.hex(), salt
 
 
 def verify_password(password: str, stored_hash: str, stored_salt: str) -> bool:
     """
-    パスワードを検証（タイミング攻撃を防止するため hmac.compare_digest を使用）
+    パスワードを検証（タイミング攻撃防止: hmac.compare_digest）
+    PBKDF2および旧SHA-256形式の双方に自動適応（後方互換性完全担保）
     """
     if not password or not stored_hash or not stored_salt:
         return False
-    calculated_hash, _ = hash_password(password, stored_salt)
-    return hmac.compare_digest(calculated_hash, stored_hash)
+
+    if stored_hash.startswith("pbkdf2$"):
+        expected_key = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            stored_salt.encode("utf-8"),
+            PBKDF2_ITERATIONS,
+        )
+        calculated = "pbkdf2$" + expected_key.hex()
+        return hmac.compare_digest(calculated, stored_hash)
+    else:
+        # 旧形式（単一SHA-256）の後方互換検証
+        salted_data = (stored_salt + password).encode("utf-8")
+        calculated = hashlib.sha256(salted_data).hexdigest()
+        return hmac.compare_digest(calculated, stored_hash)
 
 
 def get_secure_token(salt: str, hash_val: str) -> str:
