@@ -980,6 +980,11 @@ def generate_hero_timer_html(
     last_train_dept: str,
     last_train_duration: int,
 ) -> str:
+    # サーバーサイドで初期表示用の分・秒を計算（JSフォールバック）
+    _init_min = remaining_seconds // 60
+    _init_sec = remaining_seconds % 60
+    _init_min_str = f"{_init_min:02d}"
+    _init_sec_str = f"{_init_sec:02d}"
     return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1180,7 +1185,7 @@ def generate_hero_timer_html(
         <div class="hero-timer-grid">
             <div>
                 <div id="hero-countdown" class="hero-digits">
-                    <span>--</span><span class="unit">m</span><span>--</span><span class="unit">s</span>
+                    <span>{_init_min_str}</span><span class="unit">m</span><span>{_init_sec_str}</span><span class="unit">s</span>
                 </div>
                 <div style="font-size:0.7rem; color:#94A3B8; margin-top:3px; font-weight:500;">
                     終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train_dept}</span> 発（所要 {last_train_duration}分）
@@ -1293,6 +1298,7 @@ hero_html = generate_hero_timer_html(
 
 # 独立iframe内での完全自律型クライアント秒針実行
 components.html(hero_html, height=190, scrolling=False)
+
 
 # 4. 【統合メトロ・タイムラインボード】シームレスな1本線インフォグラフィック
 metro_html = """
