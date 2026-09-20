@@ -926,8 +926,21 @@ if not st.session_state["authenticated"]:
     """, unsafe_allow_html=True)
     st.stop()
 
+def on_direction_changed():
+    """行き先ラジオボタン変更時のコールバック（即時反映＆便選択リセット）"""
+    selected_label = st.session_state.get("dir_radio_key")
+    if selected_label == "恋ヶ窪 → 朝霞台":
+        st.session_state["direction"] = "koigakubo_to_asakadai"
+    else:
+        st.session_state["direction"] = "asakadai_to_koigakubo"
+    st.session_state["selected_index"] = 0
+
 if "direction" not in st.session_state:
     st.session_state["direction"] = "koigakubo_to_asakadai"
+if "dir_radio_key" not in st.session_state:
+    st.session_state["dir_radio_key"] = (
+        "恋ヶ窪 → 朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪"
+    )
 if "offset_minutes" not in st.session_state:
     st.session_state["offset_minutes"] = 0
 if "pace" not in st.session_state:
@@ -937,17 +950,60 @@ if "selected_index" not in st.session_state:
 
 # 日本標準時（JST）の現在時刻
 now_jst = datetime.datetime.now(JST)
-time_str = now_jst.strftime("%H:%M:%S")
 
-# ダイヤ改正検知ステータス
+# ダイヤ改正検知ステータス & 終電情報
 revision_info = get_revision_status()
 last_train = get_last_train_info(st.session_state["direction"], now=now_jst)
 
 # ----------------------------------------------------
-# リアルタイム経路計算 & クライアント自律型秒針エンジン
+# 1. 【最上部】行き先設定（Segmented Control）＆ ワンタップ反転
+# （計算の前に配置することで、1回で確実に切り替わり巻き戻りを100%防止）
 # ----------------------------------------------------
+col_dir, col_rev = st.columns([4.0, 1.0])
+with col_dir:
+    st.radio(
+        "進行方向",
+        options=["恋ヶ窪 → 朝霞台", "朝霞台 → 恋ヶ窪"],
+        key="dir_radio_key",
+        on_change=on_direction_changed,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+with col_rev:
+    if st.button("⇄", use_container_width=True, help="行き先を逆転"):
+        new_dir = (
+            "asakadai_to_koigakubo" if st.session_state["direction"] == "koigakubo_to_asakadai" else "koigakubo_to_asakadai"
+        )
+        st.session_state["direction"] = new_dir
+        st.session_state["dir_radio_key"] = (
+            "恋ヶ窪 → 朝霞台" if new_dir == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪"
+        )
+        st.session_state["selected_index"] = 0
+        st.rerun()
+
+# ----------------------------------------------------
+# 2. リアルタイム経路計算 & クライアント自律型秒針エンジン
+# ----------------------------------------------------
+routes = get_routes(
+    direction=st.session_state["direction"],
+    offset_minutes=st.session_state["offset_minutes"],
+    pace=st.session_state["pace"],
+    now=now_jst
+)
+
+if not routes:
+    st.warning("本日の運行は終了いたしました。")
+    st.stop()
+
+selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
+current_route = routes[selected_idx]
+
+dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
+arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
+
 def generate_hero_timer_html(
-    target_timestamp_ms: int,
+    remaining_seconds: int,
     dept_station: str,
     arrv_station: str,
     dept_time: str,
@@ -1179,27 +1235,35 @@ def generate_hero_timer_html(
 
     <script>
         (function() {{
-            const targetMs = {target_timestamp_ms};
+            // サーバーから渡された確定残り秒数
+            const initialSeconds = {remaining_seconds};
+            const startTime = Date.now();
             let isReloading = false;
+
+            function pad(n) {{
+                return (n < 10 ? '0' : '') + n;
+            }}
 
             function tick() {{
                 const now = new Date();
 
-                // 1. トップバー現在時刻（ブラウザ時計で毎秒リアルタイム更新）
-                const h = String(now.getHours()).padStart(2, '0');
-                const m = String(now.getMinutes()).padStart(2, '0');
-                const s = String(now.getSeconds()).padStart(2, '0');
+                // 1. トップバー現在時刻（端末時計で毎秒リアルタイム更新）
+                const h = pad(now.getHours());
+                const m = pad(now.getMinutes());
+                const s = pad(now.getSeconds());
                 const clockEl = document.getElementById('live-clock');
                 if (clockEl) {{
                     clockEl.textContent = h + ':' + m + ':' + s;
                 }}
 
-                // 2. カウントダウン計算（端末時計とミリ秒差分を直接計算）
-                const diffMs = targetMs - now.getTime();
+                // 2. カウントダウン計算（端末時計の経過ミリ秒を正確に引く）
+                const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+                const leftSec = Math.max(0, initialSeconds - elapsedSec);
+
                 const countdownEl = document.getElementById('hero-countdown');
                 const badgeEl = document.getElementById('hero-badge');
 
-                if (diffMs <= 0) {{
+                if (leftSec <= 0) {{
                     if (countdownEl) {{
                         countdownEl.innerHTML = '<span>00</span><span class="unit">m</span><span>00</span><span class="unit">s</span>';
                     }}
@@ -1215,21 +1279,20 @@ def generate_hero_timer_html(
                             }} catch (e) {{
                                 window.location.reload();
                             }}
-                        }}, 1000);
+                        }}, 1500);
                     }}
                     return;
                 }}
 
-                const totalSec = Math.floor(diffMs / 1000);
-                const minLeft = Math.floor(totalSec / 60);
-                const secLeft = totalSec % 60;
+                const minLeft = Math.floor(leftSec / 60);
+                const secLeft = leftSec % 60;
 
                 if (countdownEl) {{
-                    countdownEl.innerHTML = '<span>' + String(minLeft).padStart(2, '0') + '</span><span class="unit">m</span><span>' + String(secLeft).padStart(2, '0') + '</span><span class="unit">s</span>';
+                    countdownEl.innerHTML = '<span>' + pad(minLeft) + '</span><span class="unit">m</span><span>' + pad(secLeft) + '</span><span class="unit">s</span>';
                 }}
 
                 if (badgeEl) {{
-                    if (totalSec <= 120) {{
+                    if (leftSec <= 120) {{
                         badgeEl.className = 'badge badge-urgent';
                         badgeEl.textContent = 'まもなく発車';
                     }} else {{
@@ -1246,26 +1309,8 @@ def generate_hero_timer_html(
 </body>
 </html>"""
 
-# リアルタイム経路取得
-routes = get_routes(
-    direction=st.session_state["direction"],
-    offset_minutes=st.session_state["offset_minutes"],
-    pace=st.session_state["pace"],
-    now=now_jst
-)
-
-if not routes:
-    st.warning("本日の運行は終了いたしました。")
-    st.stop()
-
-selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
-current_route = routes[selected_idx]
-
-dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
-arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
-
 hero_html = generate_hero_timer_html(
-    target_timestamp_ms=current_route["departure_timestamp_ms"],
+    remaining_seconds=current_route["seconds_until_departure"],
     dept_station=dept_station,
     arrv_station=arrv_station,
     dept_time=current_route["departure_time"],
@@ -1277,28 +1322,6 @@ hero_html = generate_hero_timer_html(
 
 # 独立iframe内での完全自律型クライアント秒針実行
 components.html(hero_html, height=172)
-
-# 2. 【最上部】行き先設定（Segmented Control）＆ ワンタップ反転
-col_dir, col_rev = st.columns([4.0, 1.0])
-with col_dir:
-    dir_options = ["恋ヶ窪 → 朝霞台", "朝霞台 → 恋ヶ窪"]
-    current_label = "恋ヶ窪 → 朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪"
-    selected_label = st.radio(
-        "進行方向",
-        options=dir_options,
-        index=0 if current_label == "恋ヶ窪 → 朝霞台" else 1,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    st.session_state["direction"] = "koigakubo_to_asakadai" if selected_label == "恋ヶ窪 → 朝霞台" else "asakadai_to_koigakubo"
-
-with col_rev:
-    if st.button("⇄", use_container_width=True, help="行き先を逆転"):
-        st.session_state["direction"] = (
-            "asakadai_to_koigakubo" if st.session_state["direction"] == "koigakubo_to_asakadai" else "koigakubo_to_asakadai"
-        )
-        st.session_state["selected_index"] = 0
-        st.rerun()
 
 # 4. 【統合メトロ・タイムラインボード】シームレスな1本線インフォグラフィック
 metro_html = """
