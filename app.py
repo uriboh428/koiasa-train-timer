@@ -1171,9 +1171,10 @@ def render_hero_timer_fragment(
         badge_text = "発車しました（次の便へ更新中...）"
         min_str = "00"
         sec_str = "00"
-        # 発車後約2秒経過したらアプリ全体を再読み込みして次便へ移行
+        # 発車後約2秒経過したらアプリ全体を安全に再計算して次便へ移行
         if diff_sec <= -2:
             st.session_state["selected_index"] = 0
+            st.cache_data.clear()
             try:
                 st.rerun(scope="app")
             except TypeError:
@@ -1226,6 +1227,25 @@ def render_hero_timer_fragment(
             var target = {dept_timestamp_ms};
             var serverMs = {now_ms};
             var offset = Date.now() - serverMs;
+            // 新しい便の描画時に更新トリガーフラグを安全にリセット
+            window._koiasaReloadTriggered = false;
+
+            function triggerNextTrainUpdate() {{
+                if (window._koiasaReloadTriggered) return;
+                window._koiasaReloadTriggered = true;
+                // 1. 最優先: Streamlit の再計算ボタンをクリック（セッション維持＆SPA高速遷移）
+                var btns = Array.from(document.querySelectorAll('button'));
+                var recalcBtn = btns.find(function(b) {{
+                    return b.textContent && (b.textContent.includes('再計算') || b.textContent.includes('最新情報'));
+                }});
+                if (recalcBtn) {{
+                    recalcBtn.click();
+                }} else {{
+                    // 2. フォールバック: 再読み込み
+                    window.location.reload();
+                }}
+            }}
+
             function update() {{
                 var now = Date.now() - offset;
                 var diff = Math.floor((target - now) / 1000);
@@ -1242,9 +1262,8 @@ def render_hero_timer_fragment(
                         bEl.className = 'badge badge-departed';
                         bEl.textContent = '発車しました（次の便へ更新中...）';
                     }}
-                    if (diff <= -2 && !window._koiasaReloadTriggered) {{
-                        window._koiasaReloadTriggered = true;
-                        window.location.reload();
+                    if (diff <= -2) {{
+                        triggerNextTrainUpdate();
                     }}
                 }} else if (left <= 120) {{
                     if (bEl && !bEl.classList.contains('badge-departed')) {{
@@ -1391,20 +1410,31 @@ if len(routes) > 1:
 with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False):
     c_off, c_pace = st.columns(2)
     with c_off:
-        st.session_state["offset_minutes"] = st.select_slider(
+        selected_offset = st.select_slider(
             "何分後に出発？",
             options=[0, 5, 10, 15, 30],
             format_func=lambda x: "今すぐ" if x == 0 else f"+{x}分後",
-            value=st.session_state["offset_minutes"]
+            value=st.session_state["offset_minutes"],
+            key="slider_offset_val",
         )
+        if selected_offset != st.session_state["offset_minutes"]:
+            st.session_state["offset_minutes"] = selected_offset
+            st.session_state["selected_index"] = 0
+            st.rerun()
+
     with c_pace:
         pace_map = {"fast": "急ぎ足（最短接続）", "normal": "標準（おすすめ）", "relaxed": "ゆったり（余裕重視）"}
-        st.session_state["pace"] = st.selectbox(
+        selected_pace = st.selectbox(
             "乗換ゆとり度",
             options=["normal", "fast", "relaxed"],
             format_func=lambda x: pace_map.get(x, x),
-            index=0 if st.session_state["pace"] == "normal" else 1 if st.session_state["pace"] == "fast" else 2
+            index=0 if st.session_state["pace"] == "normal" else 1 if st.session_state["pace"] == "fast" else 2,
+            key="select_pace_val",
         )
+        if selected_pace != st.session_state["pace"]:
+            st.session_state["pace"] = selected_pace
+            st.session_state["selected_index"] = 0
+            st.rerun()
 
 
 # 終電詳細カード（折りたたみ）

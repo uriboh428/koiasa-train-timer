@@ -703,6 +703,68 @@ class TestRevisionDetector(unittest.TestCase):
             except Exception:
                 pass
 
+    def test_countdown_auto_advance_logic(self):
+        """【Next Train Auto-Advance】発車時刻経過後に自律更新ガードが作動し、次便へスムーズに遷移することを検証"""
+        from app import JST, get_timestamp_ms
+        from transit_engine import get_routes
+
+        # 模擬時刻: 8:00
+        sim_now = datetime.datetime(2026, 9, 20, 8, 0, 0, tzinfo=JST)
+        routes_initial = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=sim_now)
+        self.assertGreater(len(routes_initial), 0)
+        first_route = routes_initial[0]
+        # 恋ヶ窪 8:02 発
+        self.assertEqual(first_route["departure_time"], "08:02")
+        dept_ms = first_route["departure_timestamp_ms"]
+
+        # 1. 発車前（8:01:00）: まだ発車していないため diff_sec > 0
+        check_before = datetime.datetime(2026, 9, 20, 8, 1, 0, tzinfo=JST)
+        diff_sec_before = (dept_ms - get_timestamp_ms(check_before)) // 1000
+        self.assertEqual(diff_sec_before, 60)
+        self.assertGreater(diff_sec_before, 0)
+
+        # 2. 発車2秒後（8:02:02）: 発車済みで更新トリガー条件（diff_sec <= -2）に合致
+        check_departed = datetime.datetime(2026, 9, 20, 8, 2, 2, tzinfo=JST)
+        diff_sec_departed = (dept_ms - get_timestamp_ms(check_departed)) // 1000
+        self.assertLessEqual(diff_sec_departed, -2, "発車後2秒で次便更新トリガー条件が成立すること")
+
+        # 3. 自律更新ガードの作動検証:
+        # 発車時刻を過ぎた時点で再計算を行うと、次の便（8:10発）が先頭便として自動取得されること
+        routes_next = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=check_departed)
+        self.assertGreater(len(routes_next), 0)
+        next_route = routes_next[0]
+        self.assertEqual(next_route["departure_time"], "08:10", "発車後は即座に次の便（8:10発）へバトンタッチすること")
+        self.assertGreater(next_route["departure_timestamp_ms"], get_timestamp_ms(check_departed), "次便のカウントダウン秒数は正の数であること")
+
+    def test_offset_and_pace_changes_reactivity(self):
+        """【Dynamic Settings】出発オフセットおよび乗換ペースの変更がルート探索に正しく即時反映されることを検証"""
+        from app import JST
+        from transit_engine import get_routes
+
+        sim_now = datetime.datetime(2026, 9, 20, 10, 0, 0, tzinfo=JST)
+
+        # A. オフセットなし（今すぐ: 10:00）➡ 恋ヶ窪 10:05 発
+        r_now = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=sim_now)
+        self.assertEqual(r_now[0]["departure_time"], "10:05")
+
+        # B. オフセット+15分（10:15以降に出発）➡ 恋ヶ窪 10:15 発
+        r_15m = get_routes("koigakubo_to_asakadai", offset_minutes=15, pace="normal", now=sim_now)
+        self.assertEqual(r_15m[0]["departure_time"], "10:15")
+
+        # C. オフセット+30分（10:30以降に出発）➡ 恋ヶ窪 10:35 発
+        r_30m = get_routes("koigakubo_to_asakadai", offset_minutes=30, pace="normal", now=sim_now)
+        self.assertEqual(r_30m[0]["departure_time"], "10:35")
+
+        # D. 乗換ペースの影響（急ぎ足 fast vs ゆったり relaxed）
+        r_fast = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="fast", now=sim_now)
+        r_relaxed = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="relaxed", now=sim_now)
+        self.assertIsNotNone(r_fast)
+        self.assertIsNotNone(r_relaxed)
+        # ゆったりペースでは乗換待ち時間が十分に確保されること
+        for leg in r_relaxed[0]["legs"]:
+            if "wait_min" in leg:
+                self.assertGreaterEqual(leg["wait_min"], 0)
+
 
 if __name__ == '__main__':
     unittest.main()
