@@ -3,6 +3,9 @@
 西武国分寺線、JR中央線快速、JR武蔵野線の標準運行パターン
 """
 
+TIMETABLE_VERSION = "2026年春季現行ダイヤ (2026-03-15改定)"
+LAST_VERIFIED_DATE = "2026-09-20"
+
 # 西武国分寺線（恋ヶ窪発 国分寺行 上り）
 KOIGAKUBO_DEPARTURES = {
     5: [12, 32, 50],
