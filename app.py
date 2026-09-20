@@ -495,9 +495,14 @@ def get_revision_status() -> Dict[str, Any]:
 # ==========================================
 # Streamlit UI 表示部（スマホ最優先・ファーストビュー最適化）
 # ==========================================
+# 認証状態に応じたブラウザタイトル（未認証時は駅名を完全隠蔽し個人情報を徹底保護）
+is_authed = bool(st.session_state.get("authenticated", False))
+app_page_title = "恋朝トレインタイマー | 恋ヶ窪 ⇔ 朝霞台" if is_authed else "🔒 認証 | プライベート ダッシュボード"
+app_page_icon = "🚆" if is_authed else "🔒"
+
 st.set_page_config(
-    page_title="恋朝トレインタイマー | 恋ヶ窪 ⇔ 朝霞台",
-    page_icon="🚆",
+    page_title=app_page_title,
+    page_icon=app_page_icon,
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -848,16 +853,35 @@ st.markdown("""
         border-radius: 9999px;
     }
 
-    /* 終電案内行 */
+    /* 終電案内行（高コントラスト・極上視認性・ダークすりガラスバッジ） */
     .hero-last-train-row {
-        font-size: 0.72rem;
-        color: #FED7AA;
+        font-size: 0.74rem;
+        background: rgba(35, 10, 2, 0.42);
+        border: 1px solid rgba(254, 240, 138, 0.50);
+        border-radius: 10px;
+        padding: 6px 12px;
         margin-top: 8px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 4px 2px 0 2px;
-        border-top: 1px solid rgba(254, 240, 138, 0.15);
+        backdrop-filter: blur(8px);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+    .hero-last-train-label {
+        font-weight: 700;
+        color: #FEF08A;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        letter-spacing: 0.02em;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    }
+    .hero-last-train-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 800;
+        color: #FFFFFF;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+        letter-spacing: 0.01em;
     }
 
     /* 4. 統合メトロ・タイムラインボード (Clean Sunflower White Card) */
@@ -986,9 +1010,9 @@ if not st.session_state["authenticated"]:
         <div style="background:linear-gradient(135deg, #EA580C 0%, #F97316 50%, #FBBF24 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 18px rgba(234,88,12,0.3);">
             <span class="material-symbols-outlined" style="font-size:32px; color:#FEF08A;">lock</span>
         </div>
-        <h2 style="font-size:1.3rem; font-weight:900; color:#9A3412; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#9A3412; margin:0 0 4px 0;">プライベート ダッシュボード</h2>
         <div style="display:inline-block; background:#FEF3C7; border:1px solid #FCD34D; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#9A3412; margin-bottom:10px;">V3.9</div>
-        <p style="font-size:0.8rem; color:#78716C; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
+        <p style="font-size:0.8rem; color:#78716C; margin:0 0 16px 0;">このアプリは非公開設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1218,8 +1242,8 @@ def render_hero_timer_fragment(
             </div>
         </div>
         <div class="hero-last-train-row">
-            <span>🌙 今夜の最終便案内</span>
-            <span style="font-family:'JetBrains Mono'; font-weight:700; color:#E2E8F0;">{dept_station} {last_train_dept} 発（所要 {last_train_duration}分）</span>
+            <span class="hero-last-train-label">🌙 今夜の最終便案内</span>
+            <span class="hero-last-train-val">{dept_station} <span style="color:#FEF08A; font-weight:900;">{last_train_dept}</span> 発（所要 <span style="color:#FEF08A; font-weight:800;">{last_train_duration}分</span>）</span>
         </div>
     </div>
     <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="
@@ -1443,9 +1467,9 @@ with st.expander(f"🌙 終電のご案内（最終連絡便: {last_train['depar
         st.markdown(f"<div style='font-size:0.8rem; color:#64748B;'>本日の運行は終了いたしました（始発 {last_train['first_train_time']}）</div>", unsafe_allow_html=True)
     else:
         st.markdown(f"""
-        <div style="font-size:0.8rem; color:#0F172A; line-height:1.6;">
-            <strong>{last_train['departure_station']} {last_train['departure_time']}発 → {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 {last_train['total_minutes']}分）<br>
-            <span style="font-size:0.72rem; color:#64748B;">ルート: {escape_text(last_train['route_summary'])}</span>
+        <div style="background:#FFFDF9; border:1px solid #EADBC8; border-radius:10px; padding:10px 14px; font-size:0.82rem; color:#1C1917; line-height:1.6; box-shadow:0 1px 3px rgba(67,20,7,0.04);">
+            <strong style="color:#9A3412; font-size:0.88rem;">{last_train['departure_station']} {last_train['departure_time']}発 → {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 <strong style="color:#C2410C;">{last_train['total_minutes']}分</strong>）<br>
+            <span style="font-size:0.75rem; color:#44403C; font-weight:600;">ルート: {escape_text(last_train['route_summary'])}</span>
         </div>
         """, unsafe_allow_html=True)
 
