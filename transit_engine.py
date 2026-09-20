@@ -1,0 +1,227 @@
+import datetime
+import html
+import urllib.parse
+from typing import List, Dict, Any, Optional
+
+def escape_text(text: object) -> str:
+    """XSS防止のためのHTML特殊文字エスケープ"""
+    if text is None:
+        return ""
+    return html.escape(str(text))
+
+def is_safe_url(url: str) -> bool:
+    """外部リンクの安全プロトコル検証（http/https限定）"""
+    if not url:
+        return False
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme in ("http", "https")
+from timetable_data import (
+    KOIGAKUBO_DEPARTURES,
+    KOKUBUNJI_CHUO_DOWN,
+    NISHI_KOKUBUNJI_MUSASHINO_UP,
+    KITA_ASAKADAI_MUSASHINO_DOWN,
+    NISHI_KOKUBUNJI_CHUO_UP,
+    KOKUBUNJI_SEIBU_DOWN,
+)
+
+def find_next_departure(schedule: Dict[int, List[int]], after_time: datetime.datetime) -> Optional[datetime.datetime]:
+    """指定時刻以降で最も近い発車時刻を検索"""
+    current_hour = after_time.hour
+    current_min = after_time.minute
+    current_sec = after_time.second
+
+    for offset in range(24):
+        target_hour = (current_hour + offset) % 24
+        minutes = schedule.get(target_hour, [])
+        for m in minutes:
+            if offset == 0:
+                if m > current_min or (m == current_min and current_sec == 0):
+                    return after_time.replace(hour=target_hour, minute=m, second=0, microsecond=0)
+            else:
+                days_add = (current_hour + offset) // 24
+                target_date = after_time + datetime.timedelta(days=days_add)
+                return target_date.replace(hour=target_hour, minute=m, second=0, microsecond=0)
+    return None
+
+def find_next_departures_list(
+    schedule: Dict[int, List[int]], after_time: datetime.datetime, count: int = 3
+) -> List[datetime.datetime]:
+    """指定時刻以降の直近便リストを取得"""
+    results = []
+    check_time = after_time
+    for _ in range(count):
+        nxt = find_next_departure(schedule, check_time)
+        if not nxt:
+            break
+        results.append(nxt)
+        check_time = nxt + datetime.timedelta(minutes=1)
+    return results
+
+def get_transfer_buffer(station: str, pace: str = "normal") -> int:
+    """乗換ペースに応じたバッファ分数"""
+    if station == "kokubunji":
+        return 2 if pace == "fast" else 5 if pace == "relaxed" else 3
+    else:  # nishi_kokubunji
+        return 3 if pace == "fast" else 6 if pace == "relaxed" else 4
+
+def calculate_koigakubo_to_asakadai(
+    dept_time: datetime.datetime, pace: str, now: datetime.datetime
+) -> Dict[str, Any]:
+    """往路：恋ヶ窪 ➡ 朝霞台 の計算"""
+    leg1_dept = dept_time
+    leg1_arrv = leg1_dept + datetime.timedelta(minutes=3)
+
+    buf_k = get_transfer_buffer("kokubunji", pace)
+    earliest_chuo = leg1_arrv + datetime.timedelta(minutes=buf_k)
+    leg2_dept = find_next_departure(KOKUBUNJI_CHUO_DOWN, earliest_chuo) or earliest_chuo
+    leg2_arrv = leg2_dept + datetime.timedelta(minutes=2)
+
+    buf_n = get_transfer_buffer("nishi_kokubunji", pace)
+    earliest_m = leg2_arrv + datetime.timedelta(minutes=buf_n)
+    leg3_dept = find_next_departure(NISHI_KOKUBUNJI_MUSASHINO_UP, earliest_m) or earliest_m
+    leg3_arrv = leg3_dept + datetime.timedelta(minutes=22)
+
+    final_arrv = leg3_arrv + datetime.timedelta(minutes=1)  # 北朝霞〜朝霞台 徒歩1分
+    total_min = round((final_arrv - leg1_dept).total_seconds() / 60)
+    seconds_left = max(0, int((leg1_dept - now).total_seconds()))
+
+    legs = [
+        {
+            "line": "西武国分寺線",
+            "code": "SK",
+            "color": "#00965c",
+            "dest": "国分寺行",
+            "from_station": "恋ヶ窪",
+            "from_time": leg1_dept.strftime("%H:%M"),
+            "to_station": "国分寺",
+            "to_time": leg1_arrv.strftime("%H:%M"),
+            "duration": 3,
+            "wait_min": round((leg2_dept - leg1_arrv).total_seconds() / 60),
+            "platform": "1・2番線",
+            "note": "西武線改札からJR中央線ホームへ乗り換え",
+        },
+        {
+            "line": "JR中央線快速",
+            "code": "JC",
+            "color": "#ff6600",
+            "dest": "高尾・八王子方面行",
+            "from_station": "国分寺",
+            "from_time": leg2_dept.strftime("%H:%M"),
+            "to_station": "西国分寺",
+            "to_time": leg2_arrv.strftime("%H:%M"),
+            "duration": 2,
+            "wait_min": round((leg3_dept - leg2_arrv).total_seconds() / 60),
+            "platform": "1番線 (下り)",
+            "note": "階段またはエスカレーターで武蔵野線ホームへ直行",
+        },
+        {
+            "line": "JR武蔵野線",
+            "code": "JM",
+            "color": "#e65a00",
+            "dest": "南船橋・東京方面行",
+            "from_station": "西国分寺",
+            "from_time": leg3_dept.strftime("%H:%M"),
+            "to_station": "北朝霞 (朝霞台)",
+            "to_time": leg3_arrv.strftime("%H:%M"),
+            "duration": 22,
+            "platform": "3番線",
+            "note": "改札を出て右手の階段上が朝霞台駅（東武東上線）",
+        },
+    ]
+
+    return {
+        "direction": "koigakubo_to_asakadai",
+        "departure_time": leg1_dept.strftime("%H:%M"),
+        "arrival_time": final_arrv.strftime("%H:%M"),
+        "total_minutes": total_min,
+        "seconds_until_departure": seconds_left,
+        "legs": legs,
+    }
+
+def calculate_asakadai_to_koigakubo(
+    dept_time: datetime.datetime, pace: str, now: datetime.datetime
+) -> Dict[str, Any]:
+    """復路：朝霞台 ➡ 恋ヶ窪 の計算"""
+    leg1_dept = dept_time
+    leg1_arrv = leg1_dept + datetime.timedelta(minutes=22)
+
+    buf_n = get_transfer_buffer("nishi_kokubunji", pace)
+    earliest_c = leg1_arrv + datetime.timedelta(minutes=buf_n)
+    leg2_dept = find_next_departure(NISHI_KOKUBUNJI_CHUO_UP, earliest_c) or earliest_c
+    leg2_arrv = leg2_dept + datetime.timedelta(minutes=2)
+
+    buf_k = get_transfer_buffer("kokubunji", pace)
+    earliest_s = leg2_arrv + datetime.timedelta(minutes=buf_k)
+    leg3_dept = find_next_departure(KOKUBUNJI_SEIBU_DOWN, earliest_s) or earliest_s
+    leg3_arrv = leg3_dept + datetime.timedelta(minutes=3)
+
+    total_min = round((leg3_arrv - leg1_dept).total_seconds() / 60)
+    seconds_left = max(0, int((leg1_dept - now).total_seconds()))
+
+    legs = [
+        {
+            "line": "JR武蔵野線",
+            "code": "JM",
+            "color": "#e65a00",
+            "dest": "府中本町行",
+            "from_station": "朝霞台 (北朝霞)",
+            "from_time": leg1_dept.strftime("%H:%M"),
+            "to_station": "西国分寺",
+            "to_time": leg1_arrv.strftime("%H:%M"),
+            "duration": 22,
+            "wait_min": round((leg2_dept - leg1_arrv).total_seconds() / 60),
+            "platform": "1番線 (府中本町方面)",
+            "note": "階段を下りて中央線上りホーム（東京・新宿方面）へ",
+        },
+        {
+            "line": "JR中央線快速",
+            "code": "JC",
+            "color": "#ff6600",
+            "dest": "新宿・東京方面行",
+            "from_station": "西国分寺",
+            "from_time": leg2_dept.strftime("%H:%M"),
+            "to_station": "国分寺",
+            "to_time": leg2_arrv.strftime("%H:%M"),
+            "duration": 2,
+            "wait_min": round((leg3_dept - leg2_arrv).total_seconds() / 60),
+            "platform": "2番線 (上り)",
+            "note": "西武線連絡改札へ進む",
+        },
+        {
+            "line": "西武国分寺線",
+            "code": "SK",
+            "color": "#00965c",
+            "dest": "東村山行",
+            "from_station": "国分寺",
+            "from_time": leg3_dept.strftime("%H:%M"),
+            "to_station": "恋ヶ窪",
+            "to_time": leg3_arrv.strftime("%H:%M"),
+            "duration": 3,
+            "platform": "5番線 (西武ホーム)",
+            "note": "1駅で恋ヶ窪駅へ到着します",
+        },
+    ]
+
+    return {
+        "direction": "asakadai_to_koigakubo",
+        "departure_time": leg1_dept.strftime("%H:%M"),
+        "arrival_time": leg3_arrv.strftime("%H:%M"),
+        "total_minutes": total_min,
+        "seconds_until_departure": seconds_left,
+        "legs": legs,
+    }
+
+def get_routes(
+    direction: str, offset_minutes: int = 0, pace: str = "normal", now: Optional[datetime.datetime] = None
+) -> List[Dict[str, Any]]:
+    """指定方向の直近便リストを取得"""
+    if now is None:
+        now = datetime.datetime.now()
+    search_time = now + datetime.timedelta(minutes=offset_minutes)
+
+    if direction == "koigakubo_to_asakadai":
+        depts = find_next_departures_list(KOIGAKUBO_DEPARTURES, search_time, 3)
+        return [calculate_koigakubo_to_asakadai(d, pace, now) for d in depts]
+    else:
+        depts = find_next_departures_list(KITA_ASAKADAI_MUSASHINO_DOWN, search_time, 3)
+        return [calculate_asakadai_to_koigakubo(d, pace, now) for d in depts]
