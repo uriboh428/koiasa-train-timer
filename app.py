@@ -788,12 +788,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-try:
-    from streamlit_cookies_controller import CookieController
-    cookie_controller = CookieController()
-except Exception:
-    cookie_controller = None
-
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
@@ -838,18 +832,8 @@ if credentials is None:
     """, unsafe_allow_html=True)
     st.stop()
 
-# B. パスワード設定済みの場合：セキュアトークンURL または 端末Cookie または URLパラメータ自動認証
+# B. パスワード設定済みの場合：セキュアトークンURL または URLパラメータ自動認証
 if credentials and not st.session_state["authenticated"]:
-    # 0) 端末登録Cookieの確認 (電子通行証)
-    if cookie_controller is not None:
-        try:
-            device_cookie = cookie_controller.get("koiasa_device_pass")
-            if device_cookie and verify_secure_token(str(device_cookie), credentials["salt"], credentials["hash"]):
-                st.session_state["authenticated"] = True
-                sec_mgr.record_success()
-        except Exception:
-            pass
-
     # 1) 推測不能な暗号アクセストークンによる認証 (?token=...)
     query_token = st.query_params.get("token")
     if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"]):
@@ -871,8 +855,8 @@ if not st.session_state["authenticated"]:
         <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
-        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">端末の登録（ロック解除）</h2>
-        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリは許可された端末からのみアクセスできます。<br>パスワードを入力してこの端末を登録（電子通行証を発行）してください。</p>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">恋朝トレインタイマー</h2>
+        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -897,15 +881,6 @@ if not st.session_state["authenticated"]:
             if verify_password(input_pass, credentials["hash"], credentials["salt"]):
                 st.session_state["authenticated"] = True
                 sec_mgr.record_success()
-                
-                # 発行: 端末登録用の電子通行証 (Cookie) を発行（有効期限10年）
-                if cookie_controller is not None:
-                    try:
-                        device_token = get_secure_token(credentials["salt"], credentials["hash"])
-                        cookie_controller.set("koiasa_device_pass", device_token, max_age=315360000)
-                    except Exception:
-                        pass
-                
                 st.rerun()
             else:
                 is_now_locked, lock_duration = sec_mgr.record_failure()
@@ -942,6 +917,13 @@ if "direction" not in st.session_state:
 
 is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 
+st.markdown("""
+<div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
+    <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
+    <span style="background:#E2E8F0; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#0F172A;">Ver 2.5 (安定稼働版)</span>
+</div>
+""", unsafe_allow_html=True)
+
 col_d1, col_d2, col_rv = st.columns([5, 5, 2])
 with col_d1:
     if st.button(
@@ -950,10 +932,9 @@ with col_d1:
         type="primary" if is_k2a else "secondary",
         use_container_width=True,
     ):
-        if not is_k2a:
-            st.session_state["direction"] = "koigakubo_to_asakadai"
-            st.session_state["selected_index"] = 0
-            st.rerun()
+        st.session_state["direction"] = "koigakubo_to_asakadai"
+        st.session_state["selected_index"] = 0
+        st.rerun()
 
 with col_d2:
     if st.button(
@@ -962,10 +943,9 @@ with col_d2:
         type="primary" if not is_k2a else "secondary",
         use_container_width=True,
     ):
-        if is_k2a:
-            st.session_state["direction"] = "asakadai_to_koigakubo"
-            st.session_state["selected_index"] = 0
-            st.rerun()
+        st.session_state["direction"] = "asakadai_to_koigakubo"
+        st.session_state["selected_index"] = 0
+        st.rerun()
 
 with col_rv:
     if st.button("⇄ 反転", key="btn_dir_rev", use_container_width=True):
@@ -1101,6 +1081,7 @@ def render_hero_timer_fragment(
                     cEl.textContent = (ch < 10 ? '0' : '') + ch + ':' + (cm < 10 ? '0' : '') + cm + ':' + (cs < 10 ? '0' : '') + cs;
                 }}
             }}
+            update();
             if (window._heroTimerInterval) clearInterval(window._heroTimerInterval);
             window._heroTimerInterval = setInterval(update, 1000);
         }})();
