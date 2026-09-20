@@ -156,6 +156,63 @@ class TestTransitEngine(unittest.TestCase):
         self.assertTrue(info_2350["is_expired"])
         self.assertEqual(info_2350["seconds_until_last_train"], 0)
 
+from revision_detector import parse_pub_date, check_timetable_revision, fetch_timetable_news, JST
+
+class TestRevisionDetector(unittest.TestCase):
+    """ダイヤ改正自動検知エンジンのテスト"""
+
+    def test_parse_pub_date(self):
+        """RFC 2822 日付文字列のパース"""
+        date_str = "Thu, 20 Aug 2026 07:00:00 GMT"
+        dt = parse_pub_date(date_str)
+        self.assertIsNotNone(dt)
+        self.assertEqual(dt.year, 2026)
+        self.assertEqual(dt.month, 8)
+        self.assertEqual(dt.day, 20)
+        # 不正な文字列で例外が出ないこと
+        self.assertIsNone(parse_pub_date("invalid-date-string"))
+
+    def test_check_revision_no_alert(self):
+        """改正告知なし時のステータス判定"""
+        now = datetime.datetime(2026, 9, 20, 10, 0, 0, tzinfo=JST)
+        # 過去（1年以上前）のニュースのみ
+        mock_news = [{
+            "title": "JR東日本 2024年春のダイヤ改正について",
+            "link": "https://example.com/2024",
+            "pub_date_str": "Fri, 15 Dec 2023 08:00:00 GMT",
+            "pub_dt": datetime.datetime(2023, 12, 15, 17, 0, 0, tzinfo=JST),
+            "pub_date_display": "2023年12月15日",
+            "source": "Tetsudo.com",
+        }]
+        res = check_timetable_revision(news_list=mock_news, now=now, threshold_days=60)
+        self.assertFalse(res["has_alert"])
+        self.assertEqual(res["status"], "up_to_date")
+        self.assertEqual(res["badge_color"], "#059669")
+
+    def test_check_revision_with_alert(self):
+        """改正告知検知時のアラート判定"""
+        now = datetime.datetime(2026, 9, 20, 10, 0, 0, tzinfo=JST)
+        # 直近の西武鉄道・JR改正ニュース
+        mock_news = [{
+            "title": "西武鉄道 2026年秋のダイヤ改正を実施します（国分寺線増発）",
+            "link": "https://example.com/2026autumn",
+            "pub_date_str": "Wed, 16 Sep 2026 08:00:00 GMT",
+            "pub_dt": datetime.datetime(2026, 9, 16, 17, 0, 0, tzinfo=JST),
+            "pub_date_display": "2026年09月16日",
+            "source": "鉄道コム",
+        }]
+        res = check_timetable_revision(news_list=mock_news, now=now, threshold_days=60)
+        self.assertTrue(res["has_alert"])
+        self.assertEqual(res["status"], "revision_detected")
+        self.assertEqual(res["badge_color"], "#FF7F50")
+        self.assertEqual(len(res["announcements"]), 1)
+
+    def test_fetch_timetable_news_safety(self):
+        """タイムアウト指定で例外を投げずにリストを返すか"""
+        news = fetch_timetable_news(timeout=3.0)
+        self.assertIsInstance(news, list)
+
 if __name__ == '__main__':
     unittest.main()
+
 
