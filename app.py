@@ -550,6 +550,45 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # セッション状態の初期化
+APP_PIN = os.environ.get("APP_PIN", "7777")
+
+# URLクエリパラメータによる自動認証 (?pin=7777)
+query_pin = st.query_params.get("pin") or st.query_params.get("pass")
+if query_pin and str(query_pin) == str(APP_PIN):
+    st.session_state["authenticated"] = True
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+# 未認証時はロック画面を表示して完全停止（クローズド保護）
+if not st.session_state["authenticated"]:
+    st.markdown("""
+    <div style="text-align:center; padding: 24px 16px 12px 16px;">
+        <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
+            <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
+        </div>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">恋朝トレインタイマー</h2>
+        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用には暗証番号が必要です。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("login_form", clear_on_submit=False):
+        input_pass = st.text_input("暗証番号 (4桁)", type="password", placeholder="暗証番号を入力 (初期: 7777)")
+        submitted = st.form_submit_button("認証して開く 🔓", use_container_width=True, type="primary")
+        if submitted:
+            if input_pass == APP_PIN:
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("❌ 暗証番号が違います。正しい番号を入力してください。")
+
+    st.markdown("""
+    <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#94A3B8;">
+        🔒 Private Transit Dashboard © 2026
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
 if "direction" not in st.session_state:
     st.session_state["direction"] = "koigakubo_to_asakadai"
 if "offset_minutes" not in st.session_state:
@@ -777,6 +816,10 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
         if st.button("🔍 改正ニュース再確認", use_container_width=True, help="最新の発表ニュースを手動でチェック"):
             st.cache_data.clear()
             st.rerun()
+
+    if st.button("🔒 ログアウト（再ロック）", use_container_width=True, help="画面をロックして暗証番号入力画面に戻す"):
+        st.session_state["authenticated"] = False
+        st.rerun()
 
 # 終電詳細カード（折りたたみ）
 with st.expander(f"🌙 本日の終電案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
