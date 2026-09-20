@@ -8,9 +8,19 @@ import os
 import sys
 import datetime
 import html
+import time
 import urllib.parse
 from typing import List, Dict, Any, Optional
 import streamlit as st
+from auth_manager import (
+    load_auth_credentials,
+    save_auth_credentials,
+    verify_password,
+    check_lockout_status,
+    MAX_FAILED_ATTEMPTS,
+    LOCKOUT_DURATION_SECONDS,
+    MIN_PASSWORD_LENGTH,
+)
 
 # プロジェクトルートのパスを検索パスの最優先に追加（Streamlit Cloud必須）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -549,38 +559,112 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# セッション状態の初期化
-APP_PIN = os.environ.get("APP_PIN", "7777")
-
-# URLクエリパラメータによる自動認証 (?pin=7777)
-query_pin = st.query_params.get("pin") or st.query_params.get("pass")
-if query_pin and str(query_pin) == str(APP_PIN):
-    st.session_state["authenticated"] = True
-
+# ----------------------------------------------------
+# サイバーセキュリティ認証システム（ソルト付きSHA-256・ブルートフォース防御）
+# ----------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+if "failed_attempts" not in st.session_state:
+    st.session_state["failed_attempts"] = 0
+if "lock_until" not in st.session_state:
+    st.session_state["lock_until"] = 0.0
 
-# 未認証時はロック画面を表示して完全停止（クローズド保護）
+credentials = load_auth_credentials()
+
+# A. 初回起動モード（パスワード未設定時）：初回セットアップ画面
+if credentials is None:
+    st.markdown("""
+    <div style="text-align:center; padding: 24px 16px 12px 16px;">
+        <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
+            <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">shield_person</span>
+        </div>
+        <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">初期セキュリティ設定</h2>
+        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">本アプリはプライベート利用専用です。<br>ご利用を開始する前に、安全なパスワード（4文字以上）を設定してください。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("setup_password_form", clear_on_submit=False):
+        setup_pass = st.text_input("パスワードの設定（4文字以上）", type="password", placeholder="パスワードを入力")
+        setup_confirm = st.text_input("パスワードの再入力（確認）", type="password", placeholder="同じパスワードを入力")
+        setup_submit = st.form_submit_button("パスワードを登録して起動 🔒", use_container_width=True, type="primary")
+
+        if setup_submit:
+            if len(setup_pass) < MIN_PASSWORD_LENGTH:
+                st.error(f"❌ パスワードは{MIN_PASSWORD_LENGTH}文字以上で設定してください。")
+            elif setup_pass != setup_confirm:
+                st.error("❌ 確認用パスワードが一致しません。")
+            else:
+                if save_auth_credentials(setup_pass):
+                    st.session_state["authenticated"] = True
+                    st.session_state["failed_attempts"] = 0
+                    st.success("✅ パスワードを設定しました。アプリを起動します...")
+                    st.rerun()
+                else:
+                    st.error("❌ パスワードの保存に失敗しました。ファイル書き込み権限をご確認ください。")
+
+    st.markdown("""
+    <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#94A3B8;">
+        🔒 Private Transit Security System © 2026
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
+# B. パスワード設定済みの場合：URLパラメータ自動認証
 if not st.session_state["authenticated"]:
+    query_pin = st.query_params.get("pin") or st.query_params.get("pass")
+    if query_pin and verify_password(str(query_pin), credentials["hash"], credentials["salt"]):
+        st.session_state["authenticated"] = True
+        st.session_state["failed_attempts"] = 0
+        st.session_state["lock_until"] = 0.0
+
+# C. 通常ログイン・ロック画面（未認証時）
+if not st.session_state["authenticated"]:
+    is_locked, remaining_sec = check_lockout_status(
+        st.session_state["failed_attempts"],
+        st.session_state["lock_until"]
+    )
+
     st.markdown("""
     <div style="text-align:center; padding: 24px 16px 12px 16px;">
         <div style="background:linear-gradient(135deg, #003350 0%, #004B73 100%); color:white; width:64px; height:64px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 6px 16px rgba(0,75,115,0.25);">
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 6px 0;">恋朝トレインタイマー</h2>
-        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用には暗証番号が必要です。</p>
+        <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
 
+    if is_locked:
+        st.error(f"🚫 セキュリティ保護のため一時的にロックされています。<br>あと **{remaining_sec}秒** 後に再試行してください。")
+
     with st.form("login_form", clear_on_submit=False):
-        input_pass = st.text_input("暗証番号 (4桁)", type="password", placeholder="暗証番号を入力 (初期: 7777)")
-        submitted = st.form_submit_button("認証して開く 🔓", use_container_width=True, type="primary")
-        if submitted:
-            if input_pass == APP_PIN:
+        input_pass = st.text_input(
+            "パスワード",
+            type="password",
+            placeholder="パスワードを入力",
+            disabled=is_locked
+        )
+        submitted = st.form_submit_button(
+            "認証して開く 🔓",
+            use_container_width=True,
+            type="primary",
+            disabled=is_locked
+        )
+
+        if submitted and not is_locked:
+            if verify_password(input_pass, credentials["hash"], credentials["salt"]):
                 st.session_state["authenticated"] = True
+                st.session_state["failed_attempts"] = 0
+                st.session_state["lock_until"] = 0.0
                 st.rerun()
             else:
-                st.error("❌ 暗証番号が違います。正しい番号を入力してください。")
+                st.session_state["failed_attempts"] += 1
+                if st.session_state["failed_attempts"] >= MAX_FAILED_ATTEMPTS:
+                    st.session_state["lock_until"] = time.time() + LOCKOUT_DURATION_SECONDS
+                    st.error(f"❌ 誤ったパスワードが{MAX_FAILED_ATTEMPTS}回連続で入力されました。ブルートフォース攻撃防止のため、{LOCKOUT_DURATION_SECONDS}秒間ロックします。")
+                else:
+                    remain_tries = MAX_FAILED_ATTEMPTS - st.session_state["failed_attempts"]
+                    st.error(f"❌ パスワードが違います。（残り試行可能回数: {remain_tries}回）")
 
     st.markdown("""
     <div style="text-align:center; margin-top:24px; font-size:0.75rem; color:#94A3B8;">
@@ -809,6 +893,27 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             index=0 if st.session_state["pace"] == "normal" else 1 if st.session_state["pace"] == "fast" else 2
         )
     st.markdown("---")
+    st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:6px;'>🔑 パスワードの変更</div>", unsafe_allow_html=True)
+    with st.form("change_password_form", clear_on_submit=True):
+        cur_pwd = st.text_input("現在のパスワード", type="password", placeholder="現在のパスワード")
+        new_pwd = st.text_input("新しいパスワード（4文字以上）", type="password", placeholder="新しいパスワード")
+        new_pwd_conf = st.text_input("新しいパスワード（再確認）", type="password", placeholder="新しいパスワードを再入力")
+        update_btn = st.form_submit_button("パスワードを変更する", use_container_width=True)
+
+        if update_btn:
+            if not credentials or not verify_password(cur_pwd, credentials["hash"], credentials["salt"]):
+                st.error("❌ 現在のパスワードが正しくありません。")
+            elif len(new_pwd) < MIN_PASSWORD_LENGTH:
+                st.error(f"❌ 新しいパスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
+            elif new_pwd != new_pwd_conf:
+                st.error("❌ 新しいパスワードの再確認が一致しません。")
+            else:
+                if save_auth_credentials(new_pwd):
+                    st.success("✅ パスワードを正常に変更しました！次回から新しいパスワードでログインしてください。")
+                else:
+                    st.error("❌ パスワードの保存に失敗しました。")
+
+    st.markdown("---")
     c_chk1, c_chk2 = st.columns([3, 2])
     with c_chk1:
         st.markdown(f"<div style='font-size:0.75rem; color:#64748B; margin-top:6px;'>最終確認: {escape_text(revision_info.get('last_checked_jst', ''))}</div>", unsafe_allow_html=True)
@@ -817,7 +922,7 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             st.cache_data.clear()
             st.rerun()
 
-    if st.button("🔒 ログアウト（再ロック）", use_container_width=True, help="画面をロックして暗証番号入力画面に戻す"):
+    if st.button("🔒 ログアウト（再ロック）", use_container_width=True, help="画面をロックしてパスワード入力画面に戻す"):
         st.session_state["authenticated"] = False
         st.rerun()
 
