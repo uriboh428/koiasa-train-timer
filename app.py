@@ -521,13 +521,13 @@ st.markdown("""
        Warm Modernism / European Human-Centered Spec (Copenhagen & Provence Sunrise)
        ========================================================================== */
     :root {
-        --bg-base: #FDFBF7;
+        --bg-base: #FFFDF9;
         --surface-card: #FFFFFF;
-        --surface-hero: linear-gradient(145deg, #431407 0%, #7C2D12 38%, #9A3412 72%, #C2410C 100%);
-        --surface-glass: rgba(255, 255, 255, 0.10);
+        --surface-hero: radial-gradient(circle at 85% 15%, rgba(254, 240, 138, 0.32) 0%, transparent 55%), linear-gradient(135deg, #C2410C 0%, #EA580C 28%, #F97316 65%, #FBBF24 100%);
+        --surface-glass: rgba(67, 20, 7, 0.20);
         --border-subtle: #F3E8D6;
         --border-card: #EADBC8;
-        --border-glass: rgba(254, 240, 138, 0.25);
+        --border-glass: rgba(254, 240, 138, 0.45);
         --text-primary: #1C1917;
         --text-secondary: #57534E;
         --text-muted: #78716C;
@@ -543,7 +543,7 @@ st.markdown("""
         --radius-xl: 20px;
         --shadow-sm: 0 1px 3px rgba(67, 20, 7, 0.04);
         --shadow-md: 0 4px 14px -2px rgba(67, 20, 7, 0.06), 0 2px 4px rgba(67, 20, 7, 0.02);
-        --shadow-hero: 0 14px 36px -4px rgba(154, 52, 18, 0.35), 0 6px 14px rgba(67, 20, 7, 0.22);
+        --shadow-hero: 0 14px 34px -4px rgba(234, 88, 12, 0.38), 0 6px 14px rgba(194, 65, 12, 0.20);
     }
 
     html, body, [class*="css"] {
@@ -807,7 +807,7 @@ st.markdown("""
         background: var(--surface-glass);
         border-radius: var(--radius-md);
         padding: 8px 14px;
-        border: 1px solid rgba(254, 240, 138, 0.18);
+        border: 1px solid rgba(254, 240, 138, 0.35);
         margin-top: 4px;
         backdrop-filter: blur(8px);
     }
