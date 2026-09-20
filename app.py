@@ -1487,7 +1487,7 @@ with st.expander("🚆 路線運行情報（各社公式リアルタイム速報
 # 管理者専用エリア（ロール保護・完全分離設計）
 # ==========================================
 if st.session_state.get("is_admin", False):
-    with st.expander("🛠️ 管理者メニュー（管理者認証済み 🔓）", expanded=True):
+    with st.expander("🛠️ 管理者メニュー（管理者認証済み 🔓）", expanded=False):
         col_adm_head1, col_adm_head2 = st.columns([3, 2])
         with col_adm_head1:
             st.markdown("<div style='font-size:0.75rem; color:#059669; font-weight:700; padding:6px 0;'>🔓 管理者権限でロック解除中</div>", unsafe_allow_html=True)
