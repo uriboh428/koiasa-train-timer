@@ -506,32 +506,52 @@ st.markdown("""
 <meta name="robots" content="noindex, nofollow, noarchive">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
+    /* ==========================================================================
+       Goodpatch Neo-Tokyo Metro Design System (Ver 3.3)
+       Human-Centered Design / Apple HIG & Linear Precision Spec
+       ========================================================================== */
     :root {
-        --bg-main: #F8FAFC;
+        --bg-base: #F8FAFC;
         --surface-card: #FFFFFF;
-        --surface-hero: #0F172A;
+        --surface-hero: linear-gradient(145deg, #06152B 0%, #0A223E 55%, #02385C 100%);
+        --surface-glass: rgba(255, 255, 255, 0.07);
         --border-subtle: #E2E8F0;
-        --border-glass: rgba(255, 255, 255, 0.08);
+        --border-card: #CBD5E1;
+        --border-glass: rgba(255, 255, 255, 0.14);
         --text-primary: #0F172A;
-        --text-secondary: #64748B;
-        --text-muted: #94A3B8;
-        --accent-blue: #0284C7;
+        --text-secondary: #475569;
+        --text-muted: #64748B;
+        --text-light: #94A3B8;
+        --accent-ocean: #0284C7;
+        --accent-cyan: #38BDF8;
         --accent-emerald: #10B981;
-        --accent-rose: #F43F5E;
+        --accent-amber: #F59E0B;
+        --accent-rose: #EF4444;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+        --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.02);
+        --shadow-hero: 0 12px 32px -4px rgba(2, 48, 80, 0.38), 0 4px 12px rgba(6, 21, 43, 0.2);
     }
+
     html, body, [class*="css"] {
         font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif !important;
-        background-color: var(--bg-main);
+        background-color: var(--bg-base);
         color: var(--text-primary);
         -webkit-font-smoothing: antialiased;
-        letter-spacing: -0.015em;
+        -moz-osx-font-smoothing: grayscale;
+        letter-spacing: -0.012em;
     }
+
     header[data-testid="stHeader"] {
         display: none !important;
     }
+
     .material-symbols-outlined {
         font-family: 'Material Symbols Outlined' !important;
         font-weight: 300;
@@ -543,67 +563,107 @@ st.markdown("""
         justify-content: center;
         vertical-align: middle;
     }
+
     .block-container {
-        padding-top: 0.25rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-        max-width: 480px;
+        padding-top: 0.35rem !important;
+        padding-bottom: 2.5rem !important;
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+        max-width: 460px;
     }
 
-    /* 極上スリム・トップバー */
-    .top-nav {
+    /* 1. 統合トップバー (Unified Top Navigation Bar) */
+    .top-nav-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 4px 2px 8px 2px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid #E2E8F0;
     }
-    .brand-wrap {
+    .brand-block {
         display: flex;
-        align-items: baseline;
-        gap: 6px;
+        align-items: center;
+        gap: 8px;
     }
-    .brand-title {
-        font-size: 1.1rem;
+    .brand-logo-badge {
+        background: linear-gradient(135deg, #003350 0%, #004B73 100%);
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        box-shadow: 0 2px 6px rgba(0, 75, 115, 0.25);
+    }
+    .brand-text-group {
+        display: flex;
+        flex-direction: column;
+    }
+    .brand-name {
+        font-size: 0.98rem;
         font-weight: 800;
         color: #0F172A;
-        letter-spacing: -0.03em;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
     }
-    .brand-tag {
-        font-size: 0.65rem;
+    .brand-sub {
+        font-size: 0.6rem;
         font-weight: 700;
         color: #64748B;
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
-    .live-status-pill {
+    .meta-pill-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .live-indicator-pill {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
         padding: 3px 8px;
         border-radius: 9999px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        box-shadow: var(--shadow-sm);
     }
-    .live-dot {
+    .pulse-dot {
         width: 6px;
         height: 6px;
-        background-color: #10B981;
+        background-color: var(--accent-emerald);
         border-radius: 9999px;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+        animation: pulse-glow 2s infinite ease-in-out;
     }
-    .live-clock {
+    @keyframes pulse-glow {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(0.85); opacity: 0.45; }
+    }
+    .live-clock-text {
         font-family: 'JetBrains Mono', monospace;
         font-variant-numeric: tabular-nums;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 600;
         color: #334155;
     }
+    .version-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #15803D;
+        background: #DCFCE7;
+        border: 1px solid #86EFAC;
+        padding: 2px 6px;
+        border-radius: 6px;
+    }
 
-    /* モバイル最適化ボタンスタイリング（Apple HIG 準拠 48px タップターゲット） */
+    /* 2. 行き先切り替え（Apple HIG 48px タップターゲット & セグメンテッドUI） */
     .stButton > button {
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         font-weight: 700 !important;
         font-size: 0.88rem !important;
         min-height: 48px !important;
@@ -611,8 +671,8 @@ st.markdown("""
         border: 1px solid #E2E8F0 !important;
         background: #FFFFFF !important;
         color: #334155 !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
-        transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
         white-space: pre-line !important;
         line-height: 1.25 !important;
     }
@@ -620,27 +680,45 @@ st.markdown("""
         background: #F8FAFC !important;
         color: #0F172A !important;
         border-color: #CBD5E1 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.06) !important;
+    }
+    .stButton > button:active {
+        transform: translateY(1px);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
     }
     .stButton > button[kind="primary"] {
-        background: #004B73 !important;
+        background: linear-gradient(135deg, #004B73 0%, #003350 100%) !important;
         color: #FFFFFF !important;
-        border-color: #003350 !important;
-        box-shadow: 0 2px 6px rgba(0, 75, 115, 0.25) !important;
+        border-color: #002A44 !important;
+        box-shadow: 0 4px 12px rgba(0, 75, 115, 0.28) !important;
     }
     .stButton > button[kind="primary"]:hover {
-        background: #003350 !important;
-        border-color: #002238 !important;
+        background: linear-gradient(135deg, #003859 0%, #002238 100%) !important;
+        border-color: #001A2C !important;
+        box-shadow: 0 6px 16px rgba(0, 75, 115, 0.35) !important;
     }
 
-    /* モバイル特化・プレシジョン・ヒーロータイマーカード (Ink & Mediterranean Blue) */
+    /* 3. ヒーロー・カウントダウンカード（Frosted Deep Ocean） */
     .hero-timer-card {
-        background: linear-gradient(150deg, #0A1424 0%, #0F172A 60%, #002A44 100%);
+        background: var(--surface-hero);
         color: #FFFFFF;
-        border-radius: 20px;
+        border-radius: var(--radius-xl);
         padding: 16px 18px 14px 18px;
-        margin: 6px 0 10px 0;
-        box-shadow: 0 6px 24px -4px rgba(0, 42, 68, 0.3), 0 2px 6px rgba(15, 23, 42, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        margin: 6px 0 12px 0;
+        box-shadow: var(--shadow-hero);
+        border: 1px solid var(--border-glass);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-timer-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%);
     }
     .hero-timer-header {
         display: flex;
@@ -651,13 +729,42 @@ st.markdown("""
     .hero-micro-label {
         font-size: 0.68rem;
         font-weight: 700;
-        color: #94A3B8;
+        color: var(--text-light);
         letter-spacing: 0.08em;
         text-transform: uppercase;
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
     }
+    .badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2.5px 9px;
+        border-radius: 9999px;
+        letter-spacing: 0.03em;
+        display: inline-block;
+        transition: all 0.2s ease;
+    }
+    .badge-normal {
+        background: rgba(255, 255, 255, 0.12);
+        color: #E2E8F0;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .badge-urgent {
+        background: var(--accent-rose);
+        color: #FFFFFF;
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+        animation: urgent-pulse 1.2s infinite;
+    }
+    .badge-departed {
+        background: #475569;
+        color: #E2E8F0;
+    }
+    @keyframes urgent-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(0.97); }
+    }
+
     .hero-digits-wrap {
         text-align: center;
         padding: 4px 0 8px 0;
@@ -665,37 +772,41 @@ st.markdown("""
     .hero-digits {
         font-family: 'JetBrains Mono', monospace;
         font-variant-numeric: tabular-nums;
-        font-size: 2.85rem;
+        font-size: 2.9rem;
         font-weight: 800;
         line-height: 1.0;
         letter-spacing: -0.04em;
         color: #FFFFFF;
-        text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
     }
     .hero-digits .unit {
         font-size: 1.1rem;
         font-weight: 600;
         color: #94A3B8;
-        margin: 0 3px 0 1px;
+        margin: 0 4px 0 1px;
     }
+
+    /* 発着時刻インフォバー */
     .hero-schedule-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
+        background: var(--surface-glass);
+        border-radius: var(--radius-md);
         padding: 8px 14px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         margin-top: 4px;
+        backdrop-filter: blur(8px);
     }
     .hero-st-block {
         display: flex;
         flex-direction: column;
     }
     .hero-st-name {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: #94A3B8;
         font-weight: 600;
+        letter-spacing: 0.02em;
     }
     .hero-st-time {
         font-family: 'JetBrains Mono', monospace;
@@ -706,7 +817,7 @@ st.markdown("""
         line-height: 1.15;
     }
     .hero-st-time.arrival {
-        color: #38BDF8;
+        color: var(--accent-cyan);
     }
     .hero-arrow-block {
         display: flex;
@@ -718,11 +829,13 @@ st.markdown("""
         font-size: 0.72rem;
         font-weight: 700;
         color: #E2E8F0;
-        background: rgba(56, 189, 248, 0.18);
-        border: 1px solid rgba(56, 189, 248, 0.35);
+        background: rgba(56, 189, 248, 0.2);
+        border: 1px solid rgba(56, 189, 248, 0.4);
         padding: 2px 8px;
         border-radius: 9999px;
     }
+
+    /* 終電案内行 */
     .hero-last-train-row {
         font-size: 0.72rem;
         color: #94A3B8;
@@ -730,44 +843,51 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0 4px;
+        padding: 4px 2px 0 2px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* 統合メトロ・タイムラインボード (Seamless White Board) */
+    /* 4. 統合メトロ・タイムラインボード (Clean Metro White Card) */
     .metro-board {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 18px;
-        padding: 12px 14px 10px 14px;
-        margin: 4px 0 10px 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 14px -3px rgba(15, 23, 42, 0.04);
+        background: var(--surface-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-xl);
+        padding: 14px 16px 12px 16px;
+        margin: 4px 0 12px 0;
+        box-shadow: var(--shadow-md);
     }
     .metro-board-header {
         font-size: 0.72rem;
-        font-weight: 700;
-        color: #64748B;
-        letter-spacing: 0.06em;
+        font-weight: 800;
+        color: var(--text-muted);
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        border-bottom: 1px solid #F1F5F9;
+        padding-bottom: 6px;
     }
 
     /* エキスパンダーの洗練 */
     div[data-testid="stExpander"] {
         background: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
-        border-radius: 14px !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: var(--radius-lg) !important;
         overflow: hidden !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
-        margin-bottom: 8px !important;
+        box-shadow: var(--shadow-sm) !important;
+        margin-bottom: 10px !important;
     }
     div[data-testid="stExpander"] details summary {
         font-weight: 700 !important;
         font-size: 0.85rem !important;
         color: #334155 !important;
-        padding: 12px 14px !important;
+        padding: 12px 16px !important;
+        transition: background 0.15s;
+    }
+    div[data-testid="stExpander"] details summary:hover {
+        background: #F8FAFC !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -900,10 +1020,23 @@ if "selected_index" not in st.session_state:
 # ----------------------------------------------------
 is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 
-st.markdown("""
-<div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
-    <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.3 (時間連動スマートデフォルト版)</span>
+current_time_str = now_jst.strftime("%H:%M:%S")
+st.markdown(f"""
+<div class="top-nav-bar">
+    <div class="brand-block">
+        <div class="brand-logo-badge">🚆</div>
+        <div class="brand-text-group">
+            <span class="brand-name">恋朝タイマー</span>
+            <span class="brand-sub">KOIASA TRANSIT</span>
+        </div>
+    </div>
+    <div class="meta-pill-group">
+        <div class="live-indicator-pill">
+            <span class="pulse-dot"></span>
+            <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
+        </div>
+        <span class="version-tag">Ver 3.3 (時間連動スマートデフォルト版)</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1004,22 +1137,9 @@ def render_hero_timer_fragment(
     clock_str = f"{now_dt.hour:02d}:{now_dt.minute:02d}:{now_dt.second:02d}"
 
     html_snippet = f"""
-    <div class="top-nav">
-        <div class="brand-wrap">
-            <span class="brand-title">KOIASA</span>
-            <span class="brand-tag">TRANSIT</span>
-        </div>
-        <div class="live-status-pill">
-            <span class="live-dot"></span>
-            <span style="font-size:0.72rem; font-weight:600; color:#334155;">定刻ダイヤ</span>
-            <span style="color:#CBD5E1; font-size:0.7rem; margin:0 1px;">|</span>
-            <span class="live-clock" id="hero-clock-str">{clock_str}</span>
-        </div>
-    </div>
-
     <div class="hero-timer-card">
         <div class="hero-timer-header">
-            <span class="hero-micro-label">⏱️ 発車カウントダウン</span>
+            <span class="hero-micro-label">⏱️ 次の発車まで</span>
             <div><span class="badge {badge_class}">{badge_text}</span></div>
         </div>
         <div class="hero-digits-wrap">
@@ -1042,7 +1162,7 @@ def render_hero_timer_fragment(
             </div>
         </div>
         <div class="hero-last-train-row">
-            <span>🌙 本日の終電案内</span>
+            <span>🌙 今夜の最終便案内</span>
             <span style="font-family:'JetBrains Mono'; font-weight:700; color:#E2E8F0;">{dept_station} {last_train_dept} 発（所要 {last_train_duration}分）</span>
         </div>
     </div>
@@ -1060,11 +1180,11 @@ def render_hero_timer_fragment(
                 var sEl = document.getElementById('hero-sec-str');
                 if (mEl) mEl.textContent = (m < 10 ? '0' : '') + m;
                 if (sEl) sEl.textContent = (s < 10 ? '0' : '') + s;
-                var cEl = document.getElementById('hero-clock-str');
-                if (cEl) {{
+                var gEl = document.getElementById('global-clock-display');
+                if (gEl) {{
                     var d = new Date(now);
                     var ch = d.getHours(); var cm = d.getMinutes(); var cs = d.getSeconds();
-                    cEl.textContent = (ch < 10 ? '0' : '') + ch + ':' + (cm < 10 ? '0' : '') + cm + ':' + (cs < 10 ? '0' : '') + cs;
+                    gEl.textContent = (ch < 10 ? '0' : '') + ch + ':' + (cm < 10 ? '0' : '') + cm + ':' + (cs < 10 ? '0' : '') + cs;
                 }}
             }}
             update();
@@ -1074,162 +1194,6 @@ def render_hero_timer_fragment(
     " style="display:none;" />
     """
     st.markdown(html_snippet, unsafe_allow_html=True)
-
-st.markdown("""
-<style>
-    .top-nav {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 2px 2px 7px 2px;
-    }
-    .brand-wrap {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-    }
-    .brand-title {
-        font-size: 1.05rem;
-        font-weight: 800;
-        color: #0F172A;
-        letter-spacing: -0.03em;
-    }
-    .brand-tag {
-        font-size: 0.65rem;
-        font-weight: 700;
-        color: #64748B;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-    .live-status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        padding: 3px 8px;
-        border-radius: 9999px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    }
-    .live-dot {
-        width: 6px;
-        height: 6px;
-        background-color: #10B981;
-        border-radius: 9999px;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-        animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.9); }
-    }
-    .live-clock {
-        font-family: 'JetBrains Mono', monospace;
-        font-variant-numeric: tabular-nums;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #334155;
-    }
-    .hero-timer-card {
-        background: #0F172A;
-        color: #FFFFFF;
-        border-radius: 18px;
-        padding: 13px 16px 12px 16px;
-        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .hero-timer-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 4px;
-    }
-    .hero-micro-label {
-        font-size: 0.65rem;
-        font-weight: 700;
-        color: #94A3B8;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-    }
-    .badge {
-        font-size: 0.65rem;
-        font-weight: 600;
-        padding: 2px 8px;
-        border-radius: 9999px;
-        letter-spacing: 0.04em;
-        display: inline-block;
-        transition: all 0.2s ease;
-    }
-    .badge-normal {
-        background: rgba(255, 255, 255, 0.12);
-        color: #E2E8F0;
-    }
-    .badge-urgent {
-        background: #EF4444;
-        color: #FFFFFF;
-        font-weight: 700;
-        animation: urgent-pulse 1.2s infinite;
-    }
-    .badge-departed {
-        background: #64748B;
-        color: #FFFFFF;
-    }
-    @keyframes urgent-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
-    }
-    .hero-timer-grid {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-    }
-    .hero-digits {
-        font-family: 'JetBrains Mono', monospace;
-        font-variant-numeric: tabular-nums;
-        font-size: 2.25rem;
-        font-weight: 700;
-        line-height: 1.05;
-        letter-spacing: -0.04em;
-        color: #F8FAFC;
-    }
-    .hero-digits .unit {
-        font-size: 1.05rem;
-        font-weight: 500;
-        color: #94A3B8;
-        margin: 0 2px;
-    }
-    .hero-schedule-box {
-        text-align: right;
-    }
-    .hero-schedule-times {
-        font-family: 'JetBrains Mono', monospace;
-        font-variant-numeric: tabular-nums;
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #F8FAFC;
-        display: flex;
-        align-items: baseline;
-        justify-content: flex-end;
-        gap: 5px;
-    }
-    .hero-schedule-times .arrow {
-        color: #64748B;
-        font-size: 0.85rem;
-        font-weight: 400;
-    }
-    .hero-schedule-times .arrival {
-        color: #38BDF8;
-    }
-    .hero-meta-row {
-        font-size: 0.72rem;
-        color: #94A3B8;
-        margin-top: 2px;
-        display: flex;
-        gap: 6px;
-        justify-content: flex-end;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 render_hero_timer_fragment(
     dept_timestamp_ms=current_route["departure_timestamp_ms"],
@@ -1247,8 +1211,11 @@ render_hero_timer_fragment(
 metro_html = """
 <div class="metro-board">
     <div class="metro-board-header">
-        <span>ROUTE TIMELINE</span>
-        <span style="color:#94A3B8;">3 LEGS</span>
+        <span style="display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px; color:#0284C7;">route</span>
+            <span>乗換ルート詳細</span>
+        </span>
+        <span style="font-size:0.65rem; color:#64748B; font-weight:700; background:#F1F5F9; padding:2px 8px; border-radius:12px;">3区間 / 乗換2回</span>
     </div>
 """
 
@@ -1267,13 +1234,13 @@ for idx, leg in enumerate(current_route["legs"]):
 
     # 出発駅行
     metro_html += f"""
-<div style="display:flex; align-items:center; justify-content:space-between; padding: 2px 0;">
+<div style="display:flex; align-items:center; justify-content:space-between; padding: 3px 0;">
     <div style="display:flex; align-items:center; gap:8px;">
-        <div style="width:10px; height:10px; border-radius:9999px; border:2.5px solid {color}; background:#FFFFFF; flex-shrink:0;"></div>
-        <div style="font-size:0.88rem; font-weight:700; color:#0F172A;">{from_st}</div>
-        <div style="font-size:0.68rem; color:#64748B; background:#F1F5F9; padding:1px 5px; border-radius:4px; font-weight:500;">{platform}</div>
+        <div style="width:12px; height:12px; border-radius:9999px; border:3px solid {color}; background:#FFFFFF; flex-shrink:0; box-shadow:0 0 0 2px rgba(0,0,0,0.04);"></div>
+        <div style="font-size:0.92rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">{from_st}</div>
+        <div style="font-size:0.68rem; color:#475569; background:#F1F5F9; border:1px solid #E2E8F0; padding:1px 6px; border-radius:6px; font-weight:600;">{platform}</div>
     </div>
-    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.92rem; font-weight:700; color:#0F172A;">
+    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.95rem; font-weight:800; color:#0F172A;">
         {f_time}
     </div>
 </div>
@@ -1281,13 +1248,13 @@ for idx, leg in enumerate(current_route["legs"]):
 
     # レール（移動区間）
     metro_html += f"""
-<div style="display:flex; align-items:center; justify-content:space-between; margin-left:4px; padding: 3px 0 3px 14px; border-left: 2px solid {color};">
-    <div style="font-size:0.75rem; color:#475569; font-weight:600; display:flex; align-items:center; gap:4px;">
-        <span style="color:{color};">●</span>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-left:5px; padding: 4px 0 4px 15px; border-left: 2.5px solid {color};">
+    <div style="font-size:0.76rem; color:#334155; font-weight:600; display:flex; align-items:center; gap:5px;">
+        <span style="color:{color}; font-size:0.7rem;">●</span>
         <span>{line_name}</span>
-        <span style="color:#94A3B8; font-weight:400;">({dest})</span>
+        <span style="color:#94A3B8; font-weight:500; font-size:0.72rem;">({dest})</span>
     </div>
-    <div style="font-size:0.7rem; font-weight:600; color:{color}; background:rgba(0,0,0,0.03); padding:1px 6px; border-radius:4px;">
+    <div style="font-size:0.7rem; font-weight:700; color:{color}; background:rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.04); padding:1.5px 7px; border-radius:6px;">
         {duration}分
     </div>
 </div>
@@ -1296,13 +1263,13 @@ for idx, leg in enumerate(current_route["legs"]):
     # 到着駅（最終区間のみ到着駅ノードを描画）
     if idx == legs_count - 1:
         metro_html += f"""
-<div style="display:flex; align-items:center; justify-content:space-between; padding: 2px 0;">
+<div style="display:flex; align-items:center; justify-content:space-between; padding: 3px 0;">
     <div style="display:flex; align-items:center; gap:8px;">
-        <div style="width:10px; height:10px; border-radius:9999px; border:2.5px solid #059669; background:#059669; flex-shrink:0;"></div>
-        <div style="font-size:0.88rem; font-weight:700; color:#0F172A;">{to_st}</div>
-        <div style="font-size:0.68rem; color:#059669; background:#ECFDF5; padding:1px 5px; border-radius:4px; font-weight:600;">到着</div>
+        <div style="width:12px; height:12px; border-radius:9999px; border:3px solid #059669; background:#059669; flex-shrink:0; box-shadow:0 0 0 2px rgba(5,150,105,0.2);"></div>
+        <div style="font-size:0.92rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">{to_st}</div>
+        <div style="font-size:0.68rem; color:#059669; background:#ECFDF5; border:1px solid #A7F3D0; padding:1px 6px; border-radius:6px; font-weight:700;">到着</div>
     </div>
-    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.95rem; font-weight:700; color:#059669;">
+    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.98rem; font-weight:800; color:#059669;">
         {t_time}
     </div>
 </div>
@@ -1311,9 +1278,12 @@ for idx, leg in enumerate(current_route["legs"]):
         # 乗換待ち時間コネクタ
         badge_text = "スムーズ接続" if wait_m <= 4 else f"待 {wait_m}分"
         metro_html += f"""
-<div style="display:flex; align-items:center; justify-content:space-between; margin-left:4px; padding: 3px 0 3px 14px; border-left: 2px dashed #CBD5E1; font-size:0.72rem;">
-    <span style="color:#64748B; font-weight:500;">乗換インターバル</span>
-    <span style="color:#0284C7; font-weight:600; background:#F0F9FF; padding:1px 6px; border-radius:4px; border:1px solid #BAE6FD;">
+<div style="display:flex; align-items:center; justify-content:space-between; margin-left:5px; padding: 4px 0 4px 15px; border-left: 2px dashed #CBD5E1; font-size:0.72rem;">
+    <span style="color:#64748B; font-weight:600; display:flex; align-items:center; gap:3px;">
+        <span class="material-symbols-outlined" style="font-size:14px; color:#94A3B8;">transfer_within_a_station</span>
+        <span>乗換待ち時間</span>
+    </span>
+    <span style="color:#0284C7; font-weight:700; background:#F0F9FF; padding:1.5px 7px; border-radius:6px; border:1px solid #BAE6FD;">
         {wait_m}分 ({badge_text})
     </span>
 </div>
@@ -1327,9 +1297,12 @@ st.markdown(metro_html, unsafe_allow_html=True)
 # -------------------------------------------------------------
 if len(routes) > 1:
     st.markdown(f"""
-    <div style="font-size:0.75rem; font-weight:800; color:#475569; letter-spacing:0.04em; margin: 12px 2px 6px 2px; display:flex; justify-content:space-between; align-items:center;">
-        <span>📋 その他の便を比較（タップで切替）</span>
-        <span style="font-size:0.68rem; color:#94A3B8; font-weight:600;">全{len(routes)}候補</span>
+    <div style="font-size:0.75rem; font-weight:800; color:#334155; letter-spacing:0.04em; margin: 14px 2px 8px 2px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="display:flex; align-items:center; gap:5px;">
+            <span class="material-symbols-outlined" style="font-size:16px; color:#0284C7;">schedule</span>
+            <span>その後の運行候補を比較</span>
+        </span>
+        <span style="font-size:0.68rem; color:#64748B; font-weight:700; background:#F1F5F9; border:1px solid #E2E8F0; padding:2px 8px; border-radius:10px;">全{len(routes)}候補</span>
     </div>
     """, unsafe_allow_html=True)
     cols = st.columns(len(routes))
@@ -1408,40 +1381,49 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
                 display: flex;
                 gap: 8px;
                 align-items: center;
-                background: #F8FAFC;
+                background: #FFFFFF;
                 border: 1px solid #CBD5E1;
-                border-radius: 8px;
+                border-radius: 12px;
                 padding: 6px 10px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
             }}
             input {{
                 flex: 1;
                 border: none;
                 background: transparent;
-                font-family: monospace;
-                font-size: 0.82rem;
-                color: #0F172A;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.8rem;
+                color: #334155;
                 outline: none;
                 width: 100%;
             }}
             button {{
-                padding: 7px 16px;
+                padding: 8px 16px;
                 font-size: 0.8rem;
                 font-weight: 700;
                 color: white;
-                background: #006699;
+                background: linear-gradient(135deg, #004B73 0%, #003350 100%);
                 border: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 cursor: pointer;
                 white-space: nowrap;
-                transition: background 0.2s;
+                box-shadow: 0 2px 6px rgba(0, 75, 115, 0.2);
+                transition: all 0.15s ease;
             }}
-            button:hover {{ background: #004B73; }}
+            button:hover {{
+                background: linear-gradient(135deg, #003859 0%, #002238 100%);
+                box-shadow: 0 4px 10px rgba(0, 75, 115, 0.3);
+            }}
             .toast {{
                 display: none;
                 font-size: 0.74rem;
                 font-weight: 700;
-                color: #059669;
-                margin-top: 5px;
+                color: #065F46;
+                background: #ECFDF5;
+                border: 1px solid #A7F3D0;
+                padding: 6px 10px;
+                border-radius: 8px;
+                margin-top: 6px;
             }}
         </style>
         </head>
@@ -1518,7 +1500,7 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
         st.rerun()
 
 # 終電詳細カード（折りたたみ）
-with st.expander(f"終電案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
+with st.expander(f"🌙 終電のご案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
     if last_train["is_expired"]:
         st.markdown(f"<div style='font-size:0.8rem; color:#64748B;'>本日の運行は終了いたしました（始発 {last_train['first_train_time']}）</div>", unsafe_allow_html=True)
     else:
@@ -1549,7 +1531,7 @@ if revision_info.get("has_alert"):
     """, unsafe_allow_html=True)
 
 # 運行情報インスペクター（各社公式リアルタイム情報）
-with st.expander("路線運行情報（各社公式リアルタイム情報）", expanded=False):
+with st.expander("🚆 路線運行情報（各社公式リアルタイム速報）", expanded=False):
     st.markdown("""
     <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px; line-height:1.5;">
         ※本アプリは所定時刻表（公式ダイヤ）に基づいてご案内しています。事故・遅延・運転見合わせなどの最新の運行状況は、以下の各鉄道会社公式ページにてご確認ください。
