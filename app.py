@@ -1413,7 +1413,33 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
                 <input type="text" id="live_token_url_input" readonly 
                     style="flex:1; padding:7px 10px; font-size:0.8rem; border:1px solid #94A3B8; border-radius:6px; background:#FFFFFF; color:#0F172A; font-family:monospace;" 
                     value="__DYNAMIC_URL__" />
-                <button type="button" id="copy_live_btn" onclick="copyTokenUrlToClipboard()" 
+                <button type="button" id="copy_live_btn" 
+                    onclick="(function(btn){
+                        var inp = document.getElementById('live_token_url_input');
+                        if (!inp) return;
+                        inp.select();
+                        inp.setSelectionRange(0, 99999);
+                        var copyVal = inp.value;
+                        function showSuccess() {
+                            btn.innerText = '✅ コピー完了!';
+                            btn.style.backgroundColor = '#10B981';
+                            var alertBox = document.getElementById('copy_success_alert');
+                            if (alertBox) alertBox.style.display = 'block';
+                            setTimeout(function(){
+                                btn.innerText = '📋 コピー';
+                                btn.style.backgroundColor = '#006699';
+                            }, 3500);
+                        }
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(copyVal).then(showSuccess).catch(function(){
+                                document.execCommand('copy');
+                                showSuccess();
+                            });
+                        } else {
+                            document.execCommand('copy');
+                            showSuccess();
+                        }
+                    })(this);"
                     style="padding:7px 16px; font-size:0.8rem; font-weight:bold; color:white; background:#006699; border:none; border-radius:6px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
                     📋 コピー
                 </button>
@@ -1422,65 +1448,27 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
                 ✅ 正しいワンタップURLをクリップボードにコピーしました！ご家族のLINE等に貼り付けてそのまま共有できます。
             </div>
         </div>
-        <script>
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="
             (function() {
                 try {
-                    var tokenVal = "__TOKEN__";
+                    var tokenVal = '__TOKEN__';
                     var curOrigin = window.location.origin;
                     var curPath = window.location.pathname;
-                    if (!curPath.endsWith('/')) {
-                        curPath += '/';
+                    if (!curPath.endsWith('/')) { curPath += '/'; }
+                    var fullComputed = curOrigin + curPath + '?token=' + tokenVal;
+                    var inp = document.getElementById('live_token_url_input');
+                    if (inp && fullComputed.indexOf('http') === 0) {
+                        inp.value = fullComputed;
                     }
-                    var computedUrl = curOrigin + curPath + '?token=' + tokenVal;
-                    var elem = document.getElementById('live_token_url_input');
-                    if (elem) {
-                        elem.value = computedUrl;
-                    }
-                } catch(err) {
-                    console.error("URL compute error:", err);
-                }
-            })();
-
-            function copyTokenUrlToClipboard() {
-                var inputElem = document.getElementById('live_token_url_input');
-                var alertElem = document.getElementById('copy_success_alert');
-                if (inputElem && inputElem.value) {
-                    var textToCopy = inputElem.value;
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(textToCopy).then(function() {
-                            showCopySuccess();
-                        }).catch(function() {
-                            fallbackCopy(inputElem);
-                        });
-                    } else {
-                        fallbackCopy(inputElem);
-                    }
-                }
-            }
-
-            function fallbackCopy(inputElem) {
-                inputElem.select();
-                try {
-                    document.execCommand('copy');
-                    showCopySuccess();
                 } catch(e) {}
-            }
-
-            function showCopySuccess() {
-                var alertElem = document.getElementById('copy_success_alert');
-                if (alertElem) {
-                    alertElem.style.display = 'block';
-                    setTimeout(function() {
-                        alertElem.style.display = 'none';
-                    }, 6000);
-                }
-            }
-        </script>
+            })();
+        " style="display:none;" />
         """
-        init_display_url = dynamic_url if dynamic_url.startswith("http") else "URLを検出中..."
+        init_display_url = dynamic_url if dynamic_url.startswith("http") else f"?token={token}"
         copy_ui_html = copy_template.replace("__DYNAMIC_URL__", init_display_url).replace("__TOKEN__", token)
         st.markdown(copy_ui_html, unsafe_allow_html=True)
-        st.caption("※上の「📋 コピー」ボタンを押してご家族のLINE等に貼り付けると、ご家族は何の登録も不要でワンタップで開けます。")
+        st.code(init_display_url, language="text")
+        st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLがコピーされます。")
 
     st.markdown("---")
     # Streamlit Cloud Secrets（永続化）ガイド
