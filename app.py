@@ -945,7 +945,7 @@ st.markdown(f"""
         <span class="live-dot"></span>
         <span style="font-size:0.72rem; font-weight:600; color:#334155;">平常運行</span>
         <span style="color:#CBD5E1; font-size:0.7rem; margin:0 1px;">|</span>
-        <span class="live-clock">{time_str}</span>
+        <span id="live-clock" class="live-clock">{time_str}</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -988,6 +988,17 @@ if not routes:
 selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
 current_route = routes[selected_idx]
 
+# 出発時刻のUNIXタイムスタンプ（ミリ秒）を計算（リアルタイム秒減算エンジン用）
+dept_parts = current_route["departure_time"].split(":")
+dept_h = int(dept_parts[0])
+dept_m = int(dept_parts[1])
+
+dept_dt = now_jst.replace(hour=dept_h, minute=dept_m, second=0, microsecond=0)
+if dept_dt < now_jst:
+    dept_dt += datetime.timedelta(days=1)
+
+departure_timestamp_ms = int(dept_dt.timestamp() * 1000)
+
 wait_seconds = current_route["seconds_until_departure"]
 wait_min = wait_seconds // 60
 wait_sec = wait_seconds % 60
@@ -998,16 +1009,18 @@ arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asa
 
 urgent_badge = """<span style="background:#EF4444; color:#FFFFFF; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:9999px; letter-spacing:0.04em;">まもなく発車</span>""" if is_urgent else """<span style="background:rgba(255,255,255,0.12); color:#E2E8F0; font-size:0.65rem; font-weight:600; padding:2px 8px; border-radius:9999px; letter-spacing:0.04em;">NEXT DEPARTURE</span>"""
 
-# 3. 【プレシジョン・ヒーローカード】発車までの時間 ＋ 出発・到着時刻 ＋ 終電情報
+# 3. 【プレシジョン・ヒーローカード】リアルタイム秒刻みカウントダウン
 st.markdown(f"""
 <div class="hero-timer-card">
     <div class="hero-timer-header">
         <span class="hero-micro-label">COUNTDOWN</span>
-        {urgent_badge}
+        <div id="urgent-badge-box">{urgent_badge}</div>
     </div>
     <div class="hero-timer-grid">
         <div>
-            <div class="hero-digits">{wait_min:02d}<span class="unit">m</span>{wait_sec:02d}<span class="unit">s</span></div>
+            <div class="hero-digits">
+                <span id="timer-min">{wait_min:02d}</span><span class="unit">m</span><span id="timer-sec">{wait_sec:02d}</span><span class="unit">s</span>
+            </div>
             <div style="font-size:0.7rem; color:#94A3B8; margin-top:3px; font-weight:500;">
                 終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train['departure_time']}</span> 発（所要 {last_train['total_minutes']}分）
             </div>
@@ -1026,6 +1039,40 @@ st.markdown(f"""
         </div>
     </div>
 </div>
+
+<!-- リアルタイム秒刻みカウントダウン＆時計同期エンジン (100%確実起動) -->
+<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="display:none;" onload="(function(){{
+    const targetMs = {departure_timestamp_ms};
+    let reloaded = false;
+    function tick() {{
+        const now = Date.now();
+        const clockEl = document.getElementById('live-clock');
+        if (clockEl) {{
+            const d = new Date();
+            const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+            const jst = new Date(utc + 32400000);
+            clockEl.textContent = String(jst.getHours()).padStart(2, '0') + ':' + String(jst.getMinutes()).padStart(2, '0') + ':' + String(jst.getSeconds()).padStart(2, '0');
+        }}
+        const minEl = document.getElementById('timer-min');
+        const secEl = document.getElementById('timer-sec');
+        const diffSec = Math.max(0, Math.floor((targetMs - now) / 1000));
+        if (minEl && secEl) {{
+            minEl.textContent = String(Math.floor(diffSec / 60)).padStart(2, '0');
+            secEl.textContent = String(diffSec % 60).padStart(2, '0');
+        }}
+        const badgeEl = document.getElementById('urgent-badge-box');
+        if (badgeEl && diffSec <= 120 && diffSec > 0) {{
+            badgeEl.innerHTML = '<span style=\"background:#EF4444; color:#FFFFFF; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:9999px; letter-spacing:0.04em;\">まもなく発車</span>';
+        }}
+        if (diffSec <= 0 && !reloaded) {{
+            reloaded = true;
+            setTimeout(function() {{ window.location.reload(); }}, 1200);
+        }}
+    }}
+    if (window._koiasaTimerId) {{ clearInterval(window._koiasaTimerId); }}
+    tick();
+    window._koiasaTimerId = setInterval(tick, 1000);
+}})()" />
 """, unsafe_allow_html=True)
 
 # 4. 【統合メトロ・タイムラインボード】シームレスな1本線インフォグラフィック
