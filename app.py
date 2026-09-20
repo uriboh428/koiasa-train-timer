@@ -16,7 +16,10 @@ from auth_manager import (
     load_auth_credentials,
     save_auth_credentials,
     verify_password,
-    check_lockout_status,
+    get_secure_token,
+    verify_secure_token,
+    GlobalSecurityManager,
+    get_secrets_toml_template,
     MAX_FAILED_ATTEMPTS,
     LOCKOUT_DURATION_SECONDS,
     MIN_PASSWORD_LENGTH,
@@ -560,15 +563,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# サイバーセキュリティ認証システム（ソルト付きSHA-256・ブルートフォース防御）
+# サイバーセキュリティ認証システム（グローバル共有ロック・暗号トークンURL）
 # ----------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
-if "failed_attempts" not in st.session_state:
-    st.session_state["failed_attempts"] = 0
-if "lock_until" not in st.session_state:
-    st.session_state["lock_until"] = 0.0
 
+sec_mgr = GlobalSecurityManager.get_instance()
 credentials = load_auth_credentials()
 
 # A. 初回起動モード（パスワード未設定時）：初回セットアップ画面
@@ -596,7 +596,7 @@ if credentials is None:
             else:
                 if save_auth_credentials(setup_pass):
                     st.session_state["authenticated"] = True
-                    st.session_state["failed_attempts"] = 0
+                    sec_mgr.record_success()
                     st.success("✅ パスワードを設定しました。アプリを起動します...")
                     st.rerun()
                 else:
@@ -609,20 +609,23 @@ if credentials is None:
     """, unsafe_allow_html=True)
     st.stop()
 
-# B. パスワード設定済みの場合：URLパラメータ自動認証
+# B. パスワード設定済みの場合：セキュアトークンURL または URLパラメータ自動認証
 if not st.session_state["authenticated"]:
+    # 1) 推測不能な暗号アクセストークンによる認証 (?token=...)
+    query_token = st.query_params.get("token")
+    if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"]):
+        st.session_state["authenticated"] = True
+        sec_mgr.record_success()
+
+    # 2) 従来の暗証番号パラメータ互換 (?pin=... / ?pass=...)
     query_pin = st.query_params.get("pin") or st.query_params.get("pass")
     if query_pin and verify_password(str(query_pin), credentials["hash"], credentials["salt"]):
         st.session_state["authenticated"] = True
-        st.session_state["failed_attempts"] = 0
-        st.session_state["lock_until"] = 0.0
+        sec_mgr.record_success()
 
 # C. 通常ログイン・ロック画面（未認証時）
 if not st.session_state["authenticated"]:
-    is_locked, remaining_sec = check_lockout_status(
-        st.session_state["failed_attempts"],
-        st.session_state["lock_until"]
-    )
+    is_locked, remaining_sec = sec_mgr.get_lockout_status()
 
     st.markdown("""
     <div style="text-align:center; padding: 24px 16px 12px 16px;">
@@ -635,7 +638,7 @@ if not st.session_state["authenticated"]:
     """, unsafe_allow_html=True)
 
     if is_locked:
-        st.error(f"🚫 セキュリティ保護のため一時的にロックされています。<br>あと **{remaining_sec}秒** 後に再試行してください。")
+        st.error(f"🚫 セキュリティ保護のためアプリ全体が一時ロックされています。<br>あと **{remaining_sec}秒** 後に再試行してください。（※ブラウザを再起動しても解除されません）", icon="🔒")
 
     with st.form("login_form", clear_on_submit=False):
         input_pass = st.text_input(
@@ -654,16 +657,14 @@ if not st.session_state["authenticated"]:
         if submitted and not is_locked:
             if verify_password(input_pass, credentials["hash"], credentials["salt"]):
                 st.session_state["authenticated"] = True
-                st.session_state["failed_attempts"] = 0
-                st.session_state["lock_until"] = 0.0
+                sec_mgr.record_success()
                 st.rerun()
             else:
-                st.session_state["failed_attempts"] += 1
-                if st.session_state["failed_attempts"] >= MAX_FAILED_ATTEMPTS:
-                    st.session_state["lock_until"] = time.time() + LOCKOUT_DURATION_SECONDS
-                    st.error(f"❌ 誤ったパスワードが{MAX_FAILED_ATTEMPTS}回連続で入力されました。ブルートフォース攻撃防止のため、{LOCKOUT_DURATION_SECONDS}秒間ロックします。")
+                is_now_locked, lock_duration = sec_mgr.record_failure()
+                if is_now_locked:
+                    st.error(f"❌ 誤ったパスワードが{MAX_FAILED_ATTEMPTS}回連続で入力されました。ブルートフォース攻撃防止のため、アプリ全体を{LOCKOUT_DURATION_SECONDS}秒間ロックします。")
                 else:
-                    remain_tries = MAX_FAILED_ATTEMPTS - st.session_state["failed_attempts"]
+                    remain_tries = MAX_FAILED_ATTEMPTS - sec_mgr.failed_attempts
                     st.error(f"❌ パスワードが違います。（残り試行可能回数: {remain_tries}回）")
 
     st.markdown("""
@@ -912,6 +913,21 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
                     st.success("✅ パスワードを正常に変更しました！次回から新しいパスワードでログインしてください。")
                 else:
                     st.error("❌ パスワードの保存に失敗しました。")
+
+    st.markdown("---")
+    # セキュア・アクセストークンURL発行
+    if credentials and "token" in credentials:
+        st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>ブラウザ履歴やアドレスバーにパスワードを残さず、ワンタップで安全に開くための暗号トークンです。スマートフォンのブックマークURLの末尾に追加してください。</p>", unsafe_allow_html=True)
+        st.code(f"?token={credentials['token']}", language="text")
+
+    st.markdown("---")
+    # Streamlit Cloud Secrets（永続化）ガイド
+    if credentials:
+        st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>☁️ クラウド恒久保存（Secrets設定）</div>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>Streamlit Cloud の再起動時にも設定を100%保持したい場合は、Streamlit管理画面（Settings > Secrets）に以下を貼り付けてください。</p>", unsafe_allow_html=True)
+        secrets_toml = get_secrets_toml_template("", credentials["salt"]).replace('""', f'"{credentials["hash"]}"')
+        st.code(f'APP_PASSWORD_HASH = "{credentials["hash"]}"\nAPP_PASSWORD_SALT = "{credentials["salt"]}"', language="toml")
 
     st.markdown("---")
     c_chk1, c_chk2 = st.columns([3, 2])
