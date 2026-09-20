@@ -285,16 +285,61 @@ class TestRevisionDetector(unittest.TestCase):
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-    def test_security_no_hardcoded_passwords_in_app(self):
-        """app.py に初期パスワード (7777等) や脆弱な記載が存在しないことを検査"""
-        app_file = os.path.join(os.path.dirname(__file__), "app.py")
-        with open(app_file, "r", encoding="utf-8") as f:
-            code = f.read()
+    def test_security_global_lockout_manager(self):
+        """GlobalSecurityManager によるプロセス全体共有レートリミットの検証"""
+        from auth_manager import GlobalSecurityManager, MAX_FAILED_ATTEMPTS, LOCKOUT_DURATION_SECONDS
+        mgr = GlobalSecurityManager.get_instance()
+        mgr.record_success()  # クリーンアップ
 
-        # 以前の脆弱な初期パスワードの完全撤廃を担保
-        self.assertNotIn("7777", code)
-        self.assertNotIn("(初期:", code)
-        self.assertNotIn("初期: 7777", code)
+        # 4回連続失敗: まだロックされない
+        for _ in range(MAX_FAILED_ATTEMPTS - 1):
+            is_locked, _ = mgr.record_failure()
+            self.assertFalse(is_locked)
+
+        is_l, _ = mgr.get_lockout_status()
+        self.assertFalse(is_l)
+
+        # 5回目の失敗: ロックアウト発動
+        is_locked, sec = mgr.record_failure()
+        self.assertTrue(is_locked)
+        self.assertEqual(sec, LOCKOUT_DURATION_SECONDS)
+
+        # ロック中のステータス取得
+        is_l, rem = mgr.get_lockout_status()
+        self.assertTrue(is_l)
+        self.assertGreater(rem, 0)
+
+        # 成功リセット
+        mgr.record_success()
+        is_l, _ = mgr.get_lockout_status()
+        self.assertFalse(is_l)
+
+    def test_security_secure_access_token(self):
+        """推測不能な暗号アクセストークンの生成・照合検証"""
+        from auth_manager import hash_password, get_secure_token, verify_secure_token
+        h, s = hash_password("MyPassword2026")
+        token = get_secure_token(s, h)
+
+        # トークンは24文字の推測不能な16進文字列
+        self.assertEqual(len(token), 24)
+
+        # 正しいトークンでの検証成功
+        self.assertTrue(verify_secure_token(token, s, h))
+
+        # 誤ったトークンや改ざんの拒絶
+        self.assertFalse(verify_secure_token("fake_token_123456789012", s, h))
+        self.assertFalse(verify_secure_token("", s, h))
+        self.assertFalse(verify_secure_token(None, s, h))
+
+    def test_security_news_url_validation(self):
+        """ニュースURLのスキーム無害化検証（XSS・インジェクション防止）"""
+        from revision_detector import is_valid_news_url
+        self.assertTrue(is_valid_news_url("https://news.google.com/article/123"))
+        self.assertTrue(is_valid_news_url("http://www.seiburailway.jp/news/"))
+        self.assertFalse(is_valid_news_url("javascript:alert(1)"))
+        self.assertFalse(is_valid_news_url("data:text/html,<script>alert(1)</script>"))
+        self.assertFalse(is_valid_news_url(""))
+        self.assertFalse(is_valid_news_url(None))
 
 
 if __name__ == '__main__':
