@@ -248,3 +248,30 @@ def get_secrets_toml_template(password: str, salt: Optional[str] = None) -> str:
     """Streamlit Cloud Secrets に設定するTOML設定文字列を生成"""
     h, s = hash_password(password, salt)
     return f'APP_PASSWORD_HASH = "{h}"\nAPP_PASSWORD_SALT = "{s}"'
+
+
+def get_app_base_url() -> str:
+    """
+    現在のアクセス元ホスト名からアプリのベースURLを動的に決定する
+    Streamlit 1.30+ の st.context.headers を優先し、ローカル開発・本番Cloud問わず正しいURLを返す
+    """
+    try:
+        import streamlit as st
+        if hasattr(st, "context") and hasattr(st.context, "headers"):
+            host = st.context.headers.get("host")
+            if host:
+                scheme = "http" if ("localhost" in host or "127.0.0.1" in host) else "https"
+                return f"{scheme}://{host}"
+    except Exception:
+        pass
+    return ""
+
+
+def generate_token_link(token: str, base_url: Optional[str] = None) -> str:
+    """ワンタップ起動URLを動的に生成する"""
+    if not base_url:
+        base_url = get_app_base_url()
+    if base_url:
+        return f"{base_url.rstrip('/')}/?token={token}"
+    return f"?token={token}"
+
