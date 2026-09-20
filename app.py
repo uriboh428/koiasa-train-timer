@@ -948,7 +948,7 @@ with col_d2:
         st.rerun()
 
 with col_rv:
-    if st.button("⇄ 反転", key="btn_dir_rev", use_container_width=True):
+    if st.button("⇄", key="btn_dir_rev", use_container_width=True, help="行き先を反転"):
         st.session_state["direction"] = "asakadai_to_koigakubo" if is_k2a else "koigakubo_to_asakadai"
         st.session_state["selected_index"] = 0
         st.rerun()
@@ -1281,57 +1281,57 @@ for idx, leg in enumerate(current_route["legs"]):
 
     # 出発駅行
     metro_html += f"""
-    <div style="display:flex; align-items:center; justify-content:space-between; padding: 2px 0;">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <div style="width:10px; height:10px; border-radius:9999px; border:2.5px solid {color}; background:#FFFFFF; flex-shrink:0;"></div>
-            <div style="font-size:0.88rem; font-weight:700; color:#0F172A;">{from_st}</div>
-            <div style="font-size:0.68rem; color:#64748B; background:#F1F5F9; padding:1px 5px; border-radius:4px; font-weight:500;">{platform}</div>
-        </div>
-        <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.92rem; font-weight:700; color:#0F172A;">
-            {f_time}
-        </div>
+<div style="display:flex; align-items:center; justify-content:space-between; padding: 2px 0;">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:10px; height:10px; border-radius:9999px; border:2.5px solid {color}; background:#FFFFFF; flex-shrink:0;"></div>
+        <div style="font-size:0.88rem; font-weight:700; color:#0F172A;">{from_st}</div>
+        <div style="font-size:0.68rem; color:#64748B; background:#F1F5F9; padding:1px 5px; border-radius:4px; font-weight:500;">{platform}</div>
     </div>
-    """
+    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.92rem; font-weight:700; color:#0F172A;">
+        {f_time}
+    </div>
+</div>
+"""
 
     # レール（移動区間）
     metro_html += f"""
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-left:4px; padding: 3px 0 3px 14px; border-left: 2px solid {color};">
-        <div style="font-size:0.75rem; color:#475569; font-weight:600; display:flex; align-items:center; gap:4px;">
-            <span style="color:{color};">●</span>
-            <span>{line_name}</span>
-            <span style="color:#94A3B8; font-weight:400;">({dest})</span>
-        </div>
-        <div style="font-size:0.7rem; font-weight:600; color:{color}; background:rgba(0,0,0,0.03); padding:1px 6px; border-radius:4px;">
-            {duration}分
-        </div>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-left:4px; padding: 3px 0 3px 14px; border-left: 2px solid {color};">
+    <div style="font-size:0.75rem; color:#475569; font-weight:600; display:flex; align-items:center; gap:4px;">
+        <span style="color:{color};">●</span>
+        <span>{line_name}</span>
+        <span style="color:#94A3B8; font-weight:400;">({dest})</span>
     </div>
-    """
+    <div style="font-size:0.7rem; font-weight:600; color:{color}; background:rgba(0,0,0,0.03); padding:1px 6px; border-radius:4px;">
+        {duration}分
+    </div>
+</div>
+"""
 
     # 到着駅（最終区間のみ到着駅ノードを描画）
     if idx == legs_count - 1:
         metro_html += f"""
-        <div style="display:flex; align-items:center; justify-content:space-between; padding: 2px 0;">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <div style="width:10px; height:10px; border-radius:9999px; border:2.5px solid #059669; background:#059669; flex-shrink:0;"></div>
-                <div style="font-size:0.88rem; font-weight:700; color:#0F172A;">{to_st}</div>
-                <div style="font-size:0.68rem; color:#059669; background:#ECFDF5; padding:1px 5px; border-radius:4px; font-weight:600;">到着</div>
-            </div>
-            <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.95rem; font-weight:700; color:#059669;">
-                {t_time}
-            </div>
-        </div>
-        """
+<div style="display:flex; align-items:center; justify-content:space-between; padding: 2px 0;">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:10px; height:10px; border-radius:9999px; border:2.5px solid #059669; background:#059669; flex-shrink:0;"></div>
+        <div style="font-size:0.88rem; font-weight:700; color:#0F172A;">{to_st}</div>
+        <div style="font-size:0.68rem; color:#059669; background:#ECFDF5; padding:1px 5px; border-radius:4px; font-weight:600;">到着</div>
+    </div>
+    <div style="font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; font-size:0.95rem; font-weight:700; color:#059669;">
+        {t_time}
+    </div>
+</div>
+"""
     else:
         # 乗換待ち時間コネクタ
         badge_text = "スムーズ接続" if wait_m <= 4 else f"待 {wait_m}分"
         metro_html += f"""
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-left:4px; padding: 3px 0 3px 14px; border-left: 2px dashed #CBD5E1; font-size:0.72rem;">
-            <span style="color:#64748B; font-weight:500;">乗換インターバル</span>
-            <span style="color:#0284C7; font-weight:600; background:#F0F9FF; padding:1px 6px; border-radius:4px; border:1px solid #BAE6FD;">
-                {wait_m}分 ({badge_text})
-            </span>
-        </div>
-        """
+<div style="display:flex; align-items:center; justify-content:space-between; margin-left:4px; padding: 3px 0 3px 14px; border-left: 2px dashed #CBD5E1; font-size:0.72rem;">
+    <span style="color:#64748B; font-weight:500;">乗換インターバル</span>
+    <span style="color:#0284C7; font-weight:600; background:#F0F9FF; padding:1px 6px; border-radius:4px; border:1px solid #BAE6FD;">
+        {wait_m}分 ({badge_text})
+    </span>
+</div>
+"""
 
 metro_html += "</div>"
 st.markdown(metro_html, unsafe_allow_html=True)
