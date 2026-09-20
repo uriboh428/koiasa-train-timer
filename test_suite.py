@@ -450,11 +450,13 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記が Ver 3.9 に統一されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記がシンプルな V3.9 に統一され、説明表記が省略されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("Ver 3.9", content, "app.py に Ver 3.9 が含まれている必要があります")
+        self.assertIn("V3.9", content, "app.py に V3.9 が含まれている必要があります")
+        self.assertNotIn("Ver 3.9 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("V3.9 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
         self.assertNotIn("Ver 3.8", content, "app.py に古い Ver 3.8 が残っていてはいけません")
         self.assertNotIn("Ver 3.7", content, "app.py に古い Ver 3.7 が残っていてはいけません")
         self.assertNotIn("Ver 3.6", content, "app.py に古い Ver 3.6 が残っていてはいけません")
