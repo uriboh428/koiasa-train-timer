@@ -913,35 +913,38 @@ if "selected_index" not in st.session_state:
 now_jst = datetime.datetime.now(JST)
 
 # ----------------------------------------------------
-# 1. 【最上部】行き先設定（Segmented 2連ボタン）
-# （ネイティブボタンにより、1回のタップで確実に即時切り替え。巻き戻りは物理的に発生しません）
+# 1. 【最上部】行き先設定（ネイティブ st.radio + on_change コールバック）
+# on_change コールバックはスクリプト再実行「前」に呼ばれるため、
+# 1回目のタップから確実に方向が切り替わります。
 # ----------------------------------------------------
-col_b1, col_b2 = st.columns(2)
-is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
+_DIR_OPTIONS = ["恋ヶ窪 → 朝霞台", "朝霞台 → 恋ヶ窪"]
+_DIR_MAP = {
+    "恋ヶ窪 → 朝霞台": "koigakubo_to_asakadai",
+    "朝霞台 → 恋ヶ窪": "asakadai_to_koigakubo",
+}
+_DIR_REVERSE = {v: k for k, v in _DIR_MAP.items()}
 
-with col_b1:
-    if st.button(
-        "恋ヶ窪 ➡ 朝霞台",
-        key="btn_dir_k2a",
-        use_container_width=True,
-        type="primary" if is_k2a else "secondary"
-    ):
-        if not is_k2a:
-            st.session_state["direction"] = "koigakubo_to_asakadai"
-            st.session_state["selected_index"] = 0
-            st.rerun()
+def _on_direction_change():
+    """ラジオ選択が変わったときに呼ばれるコールバック"""
+    chosen_label = st.session_state["_dir_radio"]
+    new_dir = _DIR_MAP.get(chosen_label, "koigakubo_to_asakadai")
+    if st.session_state["direction"] != new_dir:
+        st.session_state["direction"] = new_dir
+        st.session_state["selected_index"] = 0
 
-with col_b2:
-    if st.button(
-        "朝霞台 ➡ 恋ヶ窪",
-        key="btn_dir_a2k",
-        use_container_width=True,
-        type="primary" if not is_k2a else "secondary"
-    ):
-        if is_k2a:
-            st.session_state["direction"] = "asakadai_to_koigakubo"
-            st.session_state["selected_index"] = 0
-            st.rerun()
+_current_label = _DIR_REVERSE.get(
+    st.session_state["direction"], "恋ヶ窪 → 朝霞台"
+)
+
+st.radio(
+    "行き先",
+    options=_DIR_OPTIONS,
+    index=_DIR_OPTIONS.index(_current_label),
+    key="_dir_radio",
+    on_change=_on_direction_change,
+    horizontal=True,
+    label_visibility="collapsed",
+)
 
 # ダイヤ改正検知ステータス & 終電情報（確定した direction に基づく）
 revision_info = get_revision_status()
@@ -1289,7 +1292,7 @@ hero_html = generate_hero_timer_html(
 )
 
 # 独立iframe内での完全自律型クライアント秒針実行
-components.html(hero_html, height=172)
+components.html(hero_html, height=190, scrolling=False)
 
 # 4. 【統合メトロ・タイムラインボード】シームレスな1本線インフォグラフィック
 metro_html = """
