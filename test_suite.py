@@ -450,11 +450,12 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記が Ver 3.8 に統一されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記が Ver 3.9 に統一されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("Ver 3.8", content, "app.py に Ver 3.8 が含まれている必要があります")
+        self.assertIn("Ver 3.9", content, "app.py に Ver 3.9 が含まれている必要があります")
+        self.assertNotIn("Ver 3.8", content, "app.py に古い Ver 3.8 が残っていてはいけません")
         self.assertNotIn("Ver 3.7", content, "app.py に古い Ver 3.7 が残っていてはいけません")
         self.assertNotIn("Ver 3.6", content, "app.py に古い Ver 3.6 が残っていてはいけません")
         self.assertNotIn("Ver 3.5", content, "app.py に古い Ver 3.5 が残っていてはいけません")
@@ -466,6 +467,47 @@ class TestRevisionDetector(unittest.TestCase):
         self.assertNotIn("Ver 2.9", content, "app.py に古い Ver 2.9 が残っていてはいけません")
         self.assertNotIn("Ver 2.8", content, "app.py に古い Ver 2.8 が残っていてはいけません")
         self.assertNotIn("Ver 2.6", content, "app.py に古い Ver 2.6 が残っていてはいけません")
+
+    def test_departure_auto_advance_logic(self):
+        """【Departure Transition】発車時刻（秒単位）経過後に次便へ自動繰り上がるロジックの検証"""
+        from transit_engine import find_next_departure, get_routes, get_timestamp_ms
+        from timetable_data import KOIGAKUBO_DEPARTURES
+
+        # 朝 8:02 発の便をターゲットとするテスト
+        # 1. 発車1秒前 (08:01:59) -> 08:02 発が取得されること
+        t_before = datetime.datetime(2026, 9, 20, 8, 1, 59)
+        dept_before = find_next_departure(KOIGAKUBO_DEPARTURES, t_before)
+        self.assertIsNotNone(dept_before)
+        self.assertEqual(dept_before.hour, 8)
+        self.assertEqual(dept_before.minute, 2)
+
+        # 2. 発車0秒 (08:02:00) -> 08:02 発が取得されること
+        t_exact = datetime.datetime(2026, 9, 20, 8, 2, 0)
+        dept_exact = find_next_departure(KOIGAKUBO_DEPARTURES, t_exact)
+        self.assertIsNotNone(dept_exact)
+        self.assertEqual(dept_exact.hour, 8)
+        self.assertEqual(dept_exact.minute, 2)
+
+        # 3. 発車1秒後 (08:02:01) -> 自動的に次の便（08:14発など）に繰り上がること
+        t_after = datetime.datetime(2026, 9, 20, 8, 2, 1)
+        dept_after = find_next_departure(KOIGAKUBO_DEPARTURES, t_after)
+        self.assertIsNotNone(dept_after)
+        self.assertEqual(dept_after.hour, 8)
+        self.assertGreater(dept_after.minute, 2, "発車1秒後には必ず8:02以降の次便が返される必要があります")
+
+        # 4. get_routes における次便自動切り替えの検証
+        routes_before = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=t_before)
+        routes_after = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=t_after)
+        self.assertNotEqual(routes_before[0]["departure_time"], routes_after[0]["departure_time"],
+                            "発車時刻経過後は先頭便が自動的に次の電車に更新される必要があります")
+        self.assertEqual(routes_before[0]["departure_time"], "08:02")
+        self.assertGreater(routes_after[0]["departure_time"], "08:02")
+
+        # 5. 親スクリプト側ガードのシミュレーション（選択便が過去になった場合のリセット判定）
+        simulated_selected_route = routes_before[0]
+        now_ms = get_timestamp_ms(t_after)
+        is_past = simulated_selected_route["departure_timestamp_ms"] < now_ms
+        self.assertTrue(is_past, "発車済みの便は過去判定（< now_ms）となりリセット対象になること")
 
     def test_admin_role_separation_and_security(self):
         """【Role Governance】家族利用時の管理者権限分離とアンロック整合性の検証"""

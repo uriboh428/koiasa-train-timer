@@ -517,7 +517,7 @@ st.markdown("""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       European Sunrise & Sunflower Design System (Ver 3.8 - Aube Solaire & Tournesol)
+       European Sunrise & Sunflower Design System (Ver 3.9 - Aube Solaire & Tournesol)
        Warm Modernism / European Human-Centered Spec (Copenhagen & Provence Sunrise)
        ========================================================================== */
     :root {
@@ -764,8 +764,14 @@ st.markdown("""
         animation: urgent-pulse 1.2s infinite;
     }
     .badge-departed {
-        background: #78716C;
-        color: #F5F5F4;
+        background: rgba(120, 113, 108, 0.85);
+        color: #FEF08A;
+        border: 1px solid rgba(254, 240, 138, 0.4);
+        animation: departed-pulse 1.4s infinite ease-in-out;
+    }
+    @keyframes departed-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.65; transform: scale(0.98); }
     }
     @keyframes urgent-pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
@@ -981,7 +987,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#FEF08A;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#9A3412; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#FEF3C7; border:1px solid #FCD34D; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#9A3412; margin-bottom:10px;">Ver 3.8 (朝日＆ひまわり・欧州サンシャインデザイン版)</div>
+        <div style="display:inline-block; background:#FEF3C7; border:1px solid #FCD34D; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#9A3412; margin-bottom:10px;">Ver 3.9 (発車後自動次便更新＆スマートトランジション版)</div>
         <p style="font-size:0.8rem; color:#78716C; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1060,7 +1066,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">Ver 3.8 (朝日＆ひまわり・欧州サンシャインデザイン版)</span>
+        <span class="version-tag">Ver 3.9 (発車後自動次便更新＆スマートトランジション版)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1114,8 +1120,28 @@ if not routes:
     st.warning("本日の運行は終了いたしました。")
     st.stop()
 
+# 選択便の安全検証（インデックス範囲チェック）
+if "selected_index" not in st.session_state:
+    st.session_state["selected_index"] = 0
 selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
 current_route = routes[selected_idx]
+
+# 【自律更新ガード】もし選択中の便がすでに発車時刻を過ぎている（1秒以上過去）場合、
+# 過去便が残り続けるのを防ぐため、最速便（インデックス0）に安全リセットして再取得
+now_ms_check = get_timestamp_ms(datetime.datetime.now(JST))
+if current_route["departure_timestamp_ms"] < now_ms_check:
+    st.session_state["selected_index"] = 0
+    routes = get_routes(
+        direction=st.session_state["direction"],
+        offset_minutes=st.session_state["offset_minutes"],
+        pace=st.session_state["pace"],
+        now=datetime.datetime.now(JST)
+    )
+    if not routes:
+        st.warning("本日の運行は終了いたしました。")
+        st.stop()
+    selected_idx = 0
+    current_route = routes[0]
 
 dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
 arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
@@ -1133,29 +1159,29 @@ def render_hero_timer_fragment(
 ):
     now_dt = datetime.datetime.now(JST)
     now_ms = get_timestamp_ms(now_dt)
-    left_sec = max(0, (dept_timestamp_ms - now_ms) // 1000)
+    diff_sec = (dept_timestamp_ms - now_ms) // 1000
+    left_sec = max(0, diff_sec)
     min_left = left_sec // 60
     sec_left = left_sec % 60
     min_str = f"{min_left:02d}"
     sec_str = f"{sec_left:02d}"
 
-    if left_sec <= 0:
+    if diff_sec <= 0:
         badge_class = "badge-departed"
-        badge_text = "発車しました"
+        badge_text = "発車しました（次の便へ更新中...）"
         min_str = "00"
         sec_str = "00"
-        # 0秒になったら親を再実行して次の便に更新
-        if "reload_triggered" not in st.session_state:
-            st.session_state["reload_triggered"] = True
-            st.rerun()
+        # 発車後約2秒経過したらアプリ全体を再読み込みして次便へ移行
+        if diff_sec <= -2:
+            st.session_state["selected_index"] = 0
+            try:
+                st.rerun(scope="app")
+            except TypeError:
+                st.rerun()
     elif left_sec <= 120:
-        if "reload_triggered" in st.session_state:
-            del st.session_state["reload_triggered"]
         badge_class = "badge-urgent"
         badge_text = "まもなく発車"
     else:
-        if "reload_triggered" in st.session_state:
-            del st.session_state["reload_triggered"]
         badge_class = "badge-normal"
         badge_text = "NEXT DEPARTURE"
 
@@ -1165,7 +1191,7 @@ def render_hero_timer_fragment(
     <div class="hero-timer-card">
         <div class="hero-timer-header">
             <span class="hero-micro-label">⏱️ 次の発車まで</span>
-            <div><span class="badge {badge_class}">{badge_text}</span></div>
+            <div><span id="hero-status-badge" class="badge {badge_class}">{badge_text}</span></div>
         </div>
         <div class="hero-digits-wrap">
             <div class="hero-digits">
@@ -1198,13 +1224,30 @@ def render_hero_timer_fragment(
             var offset = Date.now() - serverMs;
             function update() {{
                 var now = Date.now() - offset;
-                var left = Math.max(0, Math.floor((target - now) / 1000));
+                var diff = Math.floor((target - now) / 1000);
+                var left = Math.max(0, diff);
                 var m = Math.floor(left / 60);
                 var s = left % 60;
                 var mEl = document.getElementById('hero-min-str');
                 var sEl = document.getElementById('hero-sec-str');
                 if (mEl) mEl.textContent = (m < 10 ? '0' : '') + m;
                 if (sEl) sEl.textContent = (s < 10 ? '0' : '') + s;
+                var bEl = document.getElementById('hero-status-badge');
+                if (diff <= 0) {{
+                    if (bEl) {{
+                        bEl.className = 'badge badge-departed';
+                        bEl.textContent = '発車しました（次の便へ更新中...）';
+                    }}
+                    if (diff <= -2 && !window._koiasaReloadTriggered) {{
+                        window._koiasaReloadTriggered = true;
+                        window.location.reload();
+                    }}
+                }} else if (left <= 120) {{
+                    if (bEl && !bEl.classList.contains('badge-departed')) {{
+                        bEl.className = 'badge badge-urgent';
+                        bEl.textContent = 'まもなく発車';
+                    }}
+                }}
                 var gEl = document.getElementById('global-clock-display');
                 if (gEl) {{
                     var d = new Date(now);
@@ -1639,7 +1682,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#A8A29E; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.8 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.9 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#D6D3D1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
