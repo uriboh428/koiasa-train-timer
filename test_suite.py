@@ -767,6 +767,23 @@ class TestRevisionDetector(unittest.TestCase):
             if "wait_min" in leg:
                 self.assertGreaterEqual(leg["wait_min"], 0)
 
+    def test_no_exposed_code_blocks_in_markdown(self):
+        """【UI/UX Guard】app.py のマークダウン描画内に未意図のコードブロック（<pre><code>）化を招く4スペースインデントや生JSタグが混入していないことを検査"""
+        app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
+        with open(app_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertNotIn("<img onload=", content, "app.py に <img onload> による生JSハックが残っていてはいけません")
+        self.assertNotIn("triggerNextTrainUpdate", content, "app.py にトリガー関数名が残っていてはいけません")
+        self.assertNotIn("window.location.reload", content, "app.py に生ブラウザリロードスクリプトが残っていてはいけません")
+
+    def test_unauthenticated_screen_privacy(self):
+        """【Privacy Guard】未認証画面において駅名（恋ヶ窪、朝霞台）や路線名などの個人特定情報が露出していないことを静的検査"""
+        app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
+        with open(app_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("プライベート ダッシュボード", content, "未認証画面はプライベート ダッシュボードと表記されている必要があります")
+        self.assertIn("🔒 認証 | プライベート ダッシュボード", content, "未認証画面のブラウザタイトルが秘匿化されている必要があります")
+
 
 if __name__ == '__main__':
     unittest.main()

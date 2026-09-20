@@ -1246,67 +1246,6 @@ def render_hero_timer_fragment(
             <span class="hero-last-train-val">{dept_station} <span style="color:#FEF08A; font-weight:900;">{last_train_dept}</span> 発（所要 <span style="color:#FEF08A; font-weight:800;">{last_train_duration}分</span>）</span>
         </div>
     </div>
-    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="
-        (function() {{
-            var target = {dept_timestamp_ms};
-            var serverMs = {now_ms};
-            var offset = Date.now() - serverMs;
-            // 新しい便の描画時に更新トリガーフラグを安全にリセット
-            window._koiasaReloadTriggered = false;
-
-            function triggerNextTrainUpdate() {{
-                if (window._koiasaReloadTriggered) return;
-                window._koiasaReloadTriggered = true;
-                // 1. 最優先: Streamlit の再計算ボタンをクリック（セッション維持＆SPA高速遷移）
-                var btns = Array.from(document.querySelectorAll('button'));
-                var recalcBtn = btns.find(function(b) {{
-                    return b.textContent && (b.textContent.includes('再計算') || b.textContent.includes('最新情報'));
-                }});
-                if (recalcBtn) {{
-                    recalcBtn.click();
-                }} else {{
-                    // 2. フォールバック: 再読み込み
-                    window.location.reload();
-                }}
-            }}
-
-            function update() {{
-                var now = Date.now() - offset;
-                var diff = Math.floor((target - now) / 1000);
-                var left = Math.max(0, diff);
-                var m = Math.floor(left / 60);
-                var s = left % 60;
-                var mEl = document.getElementById('hero-min-str');
-                var sEl = document.getElementById('hero-sec-str');
-                if (mEl) mEl.textContent = (m < 10 ? '0' : '') + m;
-                if (sEl) sEl.textContent = (s < 10 ? '0' : '') + s;
-                var bEl = document.getElementById('hero-status-badge');
-                if (diff <= 0) {{
-                    if (bEl) {{
-                        bEl.className = 'badge badge-departed';
-                        bEl.textContent = '発車しました（次の便へ更新中...）';
-                    }}
-                    if (diff <= -2) {{
-                        triggerNextTrainUpdate();
-                    }}
-                }} else if (left <= 120) {{
-                    if (bEl && !bEl.classList.contains('badge-departed')) {{
-                        bEl.className = 'badge badge-urgent';
-                        bEl.textContent = 'まもなく発車';
-                    }}
-                }}
-                var gEl = document.getElementById('global-clock-display');
-                if (gEl) {{
-                    var d = new Date(now);
-                    var ch = d.getHours(); var cm = d.getMinutes(); var cs = d.getSeconds();
-                    gEl.textContent = (ch < 10 ? '0' : '') + ch + ':' + (cm < 10 ? '0' : '') + cm + ':' + (cs < 10 ? '0' : '') + cs;
-                }}
-            }}
-            update();
-            if (window._heroTimerInterval) clearInterval(window._heroTimerInterval);
-            window._heroTimerInterval = setInterval(update, 1000);
-        }})();
-    " style="display:none;" />
     """
     st.markdown(html_snippet, unsafe_allow_html=True)
 
