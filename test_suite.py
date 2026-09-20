@@ -3,6 +3,8 @@
 ダイヤ計算ロジック、乗換接続整合性、セキュリティサニタイズの全件検証
 """
 
+import os
+import time
 import unittest
 import datetime
 from timetable_data import (
@@ -212,15 +214,88 @@ class TestRevisionDetector(unittest.TestCase):
         news = fetch_timetable_news(timeout=3.0)
         self.assertIsInstance(news, list)
 
-    def test_passcode_auth_logic(self):
-        """暗証番号認証とURLパラメータ判定の整合性テスト"""
-        pin = "7777"
-        # 正しい暗証番号
-        self.assertTrue(pin == "7777")
-        # 誤った暗証番号の拒絶
-        self.assertFalse("1234" == pin)
-        self.assertFalse("" == pin)
-        self.assertFalse(None == pin)
+    def test_security_auth_hash_and_salt(self):
+        """ソルト付き暗号化ハッシュとタイミング攻撃耐性の検証"""
+        from auth_manager import hash_password, verify_password
+        pwd = "MySecretPass_2026!"
+        h1, s1 = hash_password(pwd)
+        h2, s2 = hash_password(pwd)
+
+        # ソルトが毎回ユニークであること（レインボーテーブル攻撃防御）
+        self.assertNotEqual(s1, s2)
+        self.assertNotEqual(h1, h2)
+
+        # 正しいパスワードで検証成功すること
+        self.assertTrue(verify_password(pwd, h1, s1))
+        self.assertTrue(verify_password(pwd, h2, s2))
+
+        # 誤ったパスワードで拒絶されること
+        self.assertFalse(verify_password("WrongPassword", h1, s1))
+        self.assertFalse(verify_password("", h1, s1))
+        self.assertFalse(verify_password(None, h1, s1))
+
+    def test_security_brute_force_lockout(self):
+        """総当たり攻撃（ブルートフォース）防御のロックアウト判定検証"""
+        from auth_manager import check_lockout_status
+        current_time = time.time()
+
+        # 4回失敗: まだロックされない
+        is_locked, remaining = check_lockout_status(attempts=4, lock_until=0.0)
+        self.assertFalse(is_locked)
+        self.assertEqual(remaining, 0)
+
+        # 5回失敗 & ロック期間中（60秒後まで）: ロックされる
+        lock_until = current_time + 60
+        is_locked, remaining = check_lockout_status(attempts=5, lock_until=lock_until)
+        self.assertTrue(is_locked)
+        self.assertGreater(remaining, 0)
+        self.assertLessEqual(remaining, 60)
+
+        # ロック期間終了後（過去時刻）: 自動的にロック解除される
+        expired_lock = current_time - 5
+        is_locked, remaining = check_lockout_status(attempts=5, lock_until=expired_lock)
+        self.assertFalse(is_locked)
+        self.assertEqual(remaining, 0)
+
+    def test_security_save_and_load_credentials(self):
+        """パスワードの保存と認証情報読み込みのライフサイクル検証"""
+        import tempfile
+        from auth_manager import save_auth_credentials, load_auth_credentials, verify_password, MIN_PASSWORD_LENGTH
+        import auth_manager
+
+        # 短すぎるパスワードの拒絶検証
+        self.assertFalse(save_auth_credentials("123"))
+
+        # テスト用の退避・検証
+        orig_file = auth_manager.AUTH_CONFIG_FILE
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            auth_manager.AUTH_CONFIG_FILE = tmp_path
+            success = save_auth_credentials("SuperSecret2026!")
+            self.assertTrue(success)
+
+            creds = load_auth_credentials()
+            self.assertIsNotNone(creds)
+            self.assertTrue(verify_password("SuperSecret2026!", creds["hash"], creds["salt"]))
+            self.assertFalse(verify_password("WrongPassword!", creds["hash"], creds["salt"]))
+        finally:
+            auth_manager.AUTH_CONFIG_FILE = orig_file
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_security_no_hardcoded_passwords_in_app(self):
+        """app.py に初期パスワード (7777等) や脆弱な記載が存在しないことを検査"""
+        app_file = os.path.join(os.path.dirname(__file__), "app.py")
+        with open(app_file, "r", encoding="utf-8") as f:
+            code = f.read()
+
+        # 以前の脆弱な初期パスワードの完全撤廃を担保
+        self.assertNotIn("7777", code)
+        self.assertNotIn("(初期:", code)
+        self.assertNotIn("初期: 7777", code)
+
 
 if __name__ == '__main__':
     unittest.main()
