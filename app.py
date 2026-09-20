@@ -463,7 +463,7 @@ def get_revision_status() -> Dict[str, Any]:
         }
 
 # ==========================================
-# Streamlit UI 表示部
+# Streamlit UI 表示部（スマホ最優先・ファーストビュー最適化）
 # ==========================================
 st.set_page_config(
     page_title="恋朝トレインタイマー | 恋ヶ窪 ⇔ 朝霞台",
@@ -479,11 +479,14 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Meiryo", sans-serif;
     }
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
     .material-symbols-outlined {
         font-family: 'Material Symbols Outlined' !important;
         font-weight: normal;
         font-style: normal;
-        font-size: 20px;
+        font-size: 18px;
         line-height: 1;
         letter-spacing: normal;
         text-transform: none;
@@ -494,61 +497,54 @@ st.markdown("""
         -webkit-font-smoothing: antialiased;
     }
     .block-container {
-        padding-top: 1rem;
-        padding-bottom: 2.5rem;
-        max-width: 600px;
+        padding-top: 0.4rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.6rem !important;
+        padding-right: 0.6rem !important;
+        max-width: 500px;
     }
-    .ocean-header {
-        background: linear-gradient(135deg, #003B5C 0%, #004B73 40%, #0071A4 100%);
+    .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 2px 4px 6px 4px;
+        margin-bottom: 2px;
+    }
+    .hero-timer-card {
+        background: linear-gradient(135deg, #003350 0%, #004B73 55%, #0071A4 100%);
         color: #FFFFFF;
-        padding: 22px 24px;
-        border-radius: 24px;
-        margin-bottom: 16px;
-        box-shadow: 0 10px 25px -5px rgba(0, 75, 115, 0.28);
+        border-radius: 16px;
+        padding: 10px 14px;
+        margin: 6px 0 8px 0;
+        box-shadow: 0 6px 18px -3px rgba(0, 75, 115, 0.28);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(16px);
     }
-    [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 16px 18px;
-        border-radius: 20px;
-        border: 1px solid rgba(226, 232, 240, 0.9);
-        box-shadow: 0 4px 18px -2px rgba(0, 75, 115, 0.06);
-        backdrop-filter: blur(12px);
-    }
-    [data-testid="stMetricValue"] {
-        font-family: 'JetBrains Mono', monospace !important;
-        font-weight: 800;
-        color: #004B73;
-        font-size: 1.85rem !important;
-    }
-    .last-train-card {
-        background: linear-gradient(135deg, rgba(0, 75, 115, 0.03) 0%, rgba(255, 127, 80, 0.06) 100%);
-        border: 1.5px solid rgba(255, 127, 80, 0.35);
-        border-radius: 20px;
-        padding: 14px 18px;
-        margin: 14px 0 18px 0;
-        box-shadow: 0 4px 16px -2px rgba(255, 127, 80, 0.12);
-        backdrop-filter: blur(10px);
-    }
-    .leg-card {
+    .route-step-card {
         background: rgba(255, 255, 255, 0.96);
-        border-radius: 18px;
-        padding: 15px 18px;
-        margin: 10px 0;
+        border-radius: 14px;
+        padding: 8px 12px;
+        margin: 4px 0;
         border: 1px solid #E2E8F0;
-        box-shadow: 0 2px 10px rgba(0, 75, 115, 0.04);
-        backdrop-filter: blur(8px);
+        border-left-width: 5px;
+        box-shadow: 0 2px 6px rgba(0, 75, 115, 0.03);
+    }
+    .stRadio > div {
+        gap: 6px;
+    }
+    .stRadio label {
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
     }
     .stButton > button {
-        border-radius: 16px;
+        border-radius: 12px;
         font-weight: 700;
         border: none;
+        padding: 4px 10px;
         transition: all 0.2s ease;
     }
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(0, 75, 115, 0.2);
+        box-shadow: 0 4px 12px rgba(0, 75, 115, 0.2);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -566,84 +562,31 @@ if "selected_index" not in st.session_state:
 # 日本標準時（JST）の現在時刻
 now_jst = datetime.datetime.now(JST)
 time_str = now_jst.strftime("%H:%M:%S")
-date_str = now_jst.strftime("%Y年%m月%d日")
 
+# ダイヤ改正検知ステータス
+revision_info = get_revision_status()
+last_train = get_last_train_info(st.session_state["direction"], now=now_jst)
+
+# 1. 極小スリム・トップバー
 st.markdown(f"""
-<div class="ocean-header">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div>
-            <div style="font-size:0.75rem; font-weight:700; letter-spacing:0.1em; opacity:0.85; text-transform:uppercase; display:flex; align-items:center; gap:4px;">
-                <span class="material-symbols-outlined" style="font-size:16px; color:#7DD3FC;">schedule</span>
-                Realtime Transit Dashboard
-            </div>
-            <h1 style="margin:4px 0 2px 0; font-size:1.65rem; font-weight:900; color:white; letter-spacing:-0.02em; display:flex; align-items:center; gap:8px;">
-                <span class="material-symbols-outlined" style="font-size:28px; color:#38BDF8;">train</span>
-                恋朝トレインタイマー
-            </h1>
-            <p style="margin:0; font-size:0.85rem; opacity:0.92;">恋ヶ窪 ⇔ 朝霞台 リアルタイム発着予測</p>
-        </div>
-        <div style="text-align:right;">
-            <div style="background:rgba(255,255,255,0.18); padding:5px 12px; border-radius:12px; font-size:0.75rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; border:1px solid rgba(255,255,255,0.25);">
-                <span class="material-symbols-outlined" style="font-size:14px; color:#34D399;">check_circle</span>
-                平常運行
-            </div>
-            <div style="font-family:'JetBrains Mono', monospace; font-size:0.88rem; font-weight:700; margin-top:5px; letter-spacing:0.02em;">
-                {time_str}
-            </div>
-        </div>
+<div class="top-nav">
+    <div style="font-weight:900; font-size:1.05rem; color:#004B73; display:flex; align-items:center; gap:5px; letter-spacing:-0.02em;">
+        <span class="material-symbols-outlined" style="font-size:22px; color:#0084B4;">train</span>
+        <span>恋朝トレインタイマー</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:0.7rem; color:#059669; background:#ECFDF5; padding:2px 7px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:2px; border:1px solid #A7F3D0;">
+            <span class="material-symbols-outlined" style="font-size:12px; color:#059669;">check_circle</span>平常運行
+        </span>
+        <span style="font-family:'JetBrains Mono', monospace; font-size:0.82rem; font-weight:700; color:#334155; background:#F1F5F9; padding:2px 6px; border-radius:6px;">
+            {time_str}
+        </span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ダイヤ改正告知の自動検知ステータス表示
-revision_info = get_revision_status()
-
-if revision_info.get("has_alert"):
-    announcements_html = ""
-    for ann in revision_info.get("announcements", []):
-        t = escape_text(ann.get("title", ""))
-        l = ann.get("link", "")
-        d = escape_text(ann.get("pub_date_display", ""))
-        s = escape_text(ann.get("source", ""))
-        link_tag = f"<a href='{l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:700; text-decoration:underline;'>{t}</a>" if is_safe_url(l) else t
-        announcements_html += f"""
-        <div style="font-size:0.75rem; margin-top:4px; padding:4px 8px; background:rgba(255,255,255,0.85); border-radius:6px; border-left:3px solid #FF7F50;">
-            ・{link_tag} <span style="color:#64748B; font-size:0.7rem;">({d} {s})</span>
-        </div>
-        """
-
-    st.markdown(f"""
-    <div style="background:linear-gradient(135deg, rgba(255,127,80,0.12) 0%, rgba(254,243,199,0.6) 100%); border:1.5px solid #FF7F50; border-radius:18px; padding:12px 16px; margin-bottom:14px; box-shadow:0 4px 16px rgba(255,127,80,0.12); backdrop-filter:blur(8px);">
-        <div style="font-weight:800; color:#C2410C; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
-            <span class="material-symbols-outlined" style="font-size:20px; color:#EA580C;">campaign</span>
-            {escape_text(revision_info['status_label'])}
-        </div>
-        <div style="font-size:0.8rem; color:#334155; margin-top:4px; line-height:1.4;">
-            {escape_text(revision_info['message'])}
-        </div>
-        {announcements_html}
-        <div style="font-size:0.72rem; color:#9A3412; margin-top:8px; display:flex; align-items:center; gap:4px;">
-            <span class="material-symbols-outlined" style="font-size:14px;">tips_and_updates</span>
-            <span>AIに「ダイヤを最新に更新して」とお声がけいただければ、数分でアプリ時刻表をアップデートできます。</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown(f"""
-    <div style="background:rgba(255,255,255,0.88); border:1px solid rgba(226,232,240,0.85); border-radius:12px; padding:5px 14px; font-size:0.75rem; color:#334155; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; backdrop-filter:blur(8px); box-shadow:0 2px 8px rgba(0,75,115,0.03);">
-        <span style="display:inline-flex; align-items:center; gap:4px; font-weight:700; color:#059669;">
-            <span class="material-symbols-outlined" style="font-size:16px; color:#059669;">verified</span>
-            収録ダイヤ：{escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}
-        </span>
-        <span style="color:#64748B; font-size:0.7rem; display:inline-flex; align-items:center; gap:2px;">
-            <span class="material-symbols-outlined" style="font-size:13px; color:#0084B4;">autorenew</span>
-            改正自動検知中
-        </span>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 進行方向コントロール
-col_dir, col_rev = st.columns([3, 1])
+# 2. 【最上部】行き先設定 ＆ ワンタップ反転コントロール
+col_dir, col_rev = st.columns([3.6, 1.4])
 with col_dir:
     dir_options = ["恋ヶ窪 ➡ 朝霞台", "朝霞台 ➡ 恋ヶ窪"]
     current_label = "恋ヶ窪 ➡ 朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台 ➡ 恋ヶ窪"
@@ -663,6 +606,150 @@ with col_rev:
         )
         st.session_state["selected_index"] = 0
         st.rerun()
+
+# 経路計算実行
+routes = get_routes(
+    direction=st.session_state["direction"],
+    offset_minutes=st.session_state["offset_minutes"],
+    pace=st.session_state["pace"],
+    now=now_jst
+)
+
+if not routes:
+    st.warning("本日の運行は終了いたしました。")
+    st.stop()
+
+# 選択されたルート
+selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
+current_route = routes[selected_idx]
+
+wait_seconds = current_route["seconds_until_departure"]
+wait_min = wait_seconds // 60
+wait_sec = wait_seconds % 60
+is_urgent = wait_seconds <= 120
+
+dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
+arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
+
+urgent_badge = """<span style="background:#EF4444; color:white; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:10px;">⚠️ まもなく発車</span>""" if is_urgent else """<span style="background:rgba(255,255,255,0.2); color:#FFFFFF; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:10px;">最速便</span>"""
+
+# 3. 【スマートヒーローカード】発車までの時間 ＋ 出発時刻 ＋ 到着予想
+st.markdown(f"""
+<div class="hero-timer-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+        <div style="font-size:0.75rem; font-weight:700; opacity:0.9; display:flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:15px; color:#7DD3FC;">timer</span>
+            <span>発車までの時間</span>
+        </div>
+        <div>
+            {urgent_badge}
+        </div>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+        <div>
+            <div style="font-family:'JetBrains Mono', monospace; font-size:2.0rem; font-weight:900; line-height:1.1; letter-spacing:-0.03em; color:#FFFFFF;">
+                {wait_min:02d}<span style="font-size:1.1rem; font-weight:700; margin:0 2px;">分</span>{wait_sec:02d}<span style="font-size:1.1rem; font-weight:700; margin-left:2px;">秒</span>
+            </div>
+            <div style="font-size:0.72rem; opacity:0.85; margin-top:2px;">
+                🌙 終電: {last_train['departure_time']}発 (所要{last_train['total_minutes']}分)
+            </div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:1.05rem; font-weight:800; color:#FFFFFF; display:flex; align-items:baseline; justify-content:flex-end; gap:4px;">
+                <span style="font-size:0.8rem; opacity:0.85;">{dept_station}</span>
+                <span style="font-family:'JetBrains Mono'; font-size:1.3rem; color:#FFFFFF;">{current_route['departure_time']}</span>
+                <span style="font-size:0.8rem; opacity:0.8; margin:0 2px;">➡</span>
+                <span style="font-size:0.8rem; opacity:0.85;">{arrv_station}</span>
+                <span style="font-family:'JetBrains Mono'; font-size:1.3rem; color:#34D399;">{current_route['arrival_time']}</span>
+            </div>
+            <div style="font-size:0.75rem; font-weight:700; color:#BAE6FD; margin-top:1px;">
+                所要時間: 約 <strong>{current_route['total_minutes']}</strong> 分
+            </div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# 4. 【ファーストビュー収容】乗り継ぎルート詳細（3ステップのスマートタイムライン）
+st.markdown("""
+<div style="display:flex; justify-content:space-between; align-items:center; margin: 6px 2px 4px 2px;">
+    <div style="font-weight:800; font-size:0.92rem; color:#004B73; display:flex; align-items:center; gap:4px;">
+        <span class="material-symbols-outlined" style="font-size:18px; color:#004B73;">alt_route</span>
+        <span>乗り継ぎルート詳細</span>
+    </div>
+    <div style="font-size:0.7rem; color:#64748B;">全3区間</div>
+</div>
+""", unsafe_allow_html=True)
+
+for idx, leg in enumerate(current_route["legs"]):
+    line_name = escape_text(leg['line'])
+    dest = escape_text(leg['dest'])
+    from_st = escape_text(leg['from_station'])
+    to_st = escape_text(leg['to_station'])
+    f_time = escape_text(leg['from_time'])
+    t_time = escape_text(leg['to_time'])
+    duration = leg['duration']
+    color = leg['color']
+    platform = escape_text(leg.get('platform', ''))
+    note = escape_text(leg.get('note', ''))
+    wait_m = leg.get('wait_min', 0)
+
+    st.markdown(f"""
+    <div class="route-step-card" style="border-left-color: {color};">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:800; font-size:0.92rem; color:#0F172A; display:flex; align-items:center; gap:4px;">
+                <span>{from_st}</span>
+                <span style="font-family:'JetBrains Mono'; color:#004B73; font-size:1.05rem; margin-left:2px;">{f_time}</span>
+                <span style="font-size:0.7rem; color:#64748B; background:#F1F5F9; padding:1px 6px; border-radius:4px; margin-left:3px;">{platform}</span>
+            </div>
+            <div style="font-size:0.75rem; font-weight:700; color:{color}; display:inline-flex; align-items:center; gap:2px;">
+                <span class="material-symbols-outlined" style="font-size:13px;">timer</span>{duration}分
+            </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+            <div style="font-size:0.75rem; font-weight:700; color:{color}; display:flex; align-items:center; gap:3px;">
+                <span class="material-symbols-outlined" style="font-size:14px;">train</span>
+                <span>{line_name}（{dest}）</span>
+            </div>
+            <div style="font-weight:800; font-size:0.92rem; color:#0F172A; display:flex; align-items:center; gap:3px;">
+                <span style="font-size:0.75rem; color:#64748B;">➡ {to_st}</span>
+                <span style="font-family:'JetBrains Mono'; color:#059669; font-size:1.05rem;">{t_time}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if idx < len(current_route["legs"]) - 1 and wait_m > 0:
+        badge = "スムーズ接続" if wait_m <= 4 else f"待{wait_m}分"
+        st.markdown(f"""
+        <div style="margin:-1px 0 2px 14px; font-size:0.72rem; font-weight:700; color:#0071A4; display:flex; align-items:center; gap:3px;">
+            <span class="material-symbols-outlined" style="font-size:13px; color:#0084B4;">directions_walk</span>
+            <span>乗換待ち 約<strong>{wait_m}</strong>分 ({badge})</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+# -------------------------------------------------------------
+# 二次情報（その後の電車候補・詳細設定・終電・ダイヤ改正）
+# -------------------------------------------------------------
+st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+# その後の電車候補（比較・選択）
+if len(routes) > 1:
+    st.markdown("""
+    <div style="display:flex; align-items:center; gap:4px; margin: 10px 2px 4px 2px;">
+        <span class="material-symbols-outlined" style="color:#004B73; font-size:16px;">view_timeline</span>
+        <span style="font-size:0.85rem; font-weight:800; color:#004B73;">その後の電車候補</span>
+    </div>
+    """, unsafe_allow_html=True)
+    cols = st.columns(len(routes))
+    for i, r in enumerate(routes):
+        with cols[i]:
+            is_cur = (i == selected_idx)
+            label = "最速便" if i == 0 else f"+{i}本後"
+            btn_text = f"{label}\n{r['departure_time']}➡{r['arrival_time']}"
+            if st.button(btn_text, key=f"btn_route_{i}", use_container_width=True, type="primary" if is_cur else "secondary"):
+                st.session_state["selected_index"] = i
+                st.rerun()
 
 # 出発オフセット ＆ 乗換ペース（折りたたみ・設定）
 with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False):
@@ -687,209 +774,61 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
     with c_chk1:
         st.markdown(f"<div style='font-size:0.75rem; color:#64748B; margin-top:6px;'>最終確認: {escape_text(revision_info.get('last_checked_jst', ''))}</div>", unsafe_allow_html=True)
     with c_chk2:
-        if st.button("🔍 ダイヤ改正を再確認", use_container_width=True, help="最新の発表ニュースを手動でチェック"):
+        if st.button("🔍 改正ニュース再確認", use_container_width=True, help="最新の発表ニュースを手動でチェック"):
             st.cache_data.clear()
             st.rerun()
 
-# 経路計算実行
-routes = get_routes(
-    direction=st.session_state["direction"],
-    offset_minutes=st.session_state["offset_minutes"],
-    pace=st.session_state["pace"],
-    now=now_jst
-)
-
-if not routes:
-    st.warning("本日の運行は終了いたしました。")
-    st.stop()
-
-# 選択されたルート
-selected_idx = min(st.session_state["selected_index"], len(routes) - 1)
-current_route = routes[selected_idx]
-
-wait_seconds = current_route["seconds_until_departure"]
-wait_min = wait_seconds // 60
-wait_sec = wait_seconds % 60
-is_urgent = wait_seconds <= 120
-
-# メインメトリクス表示（発車まで・発車時刻・到着予想）
-m1, m2, m3 = st.columns(3)
-with m1:
-    st.metric(
-        label="発車までの時間",
-        value=f"{wait_min:02d}分{wait_sec:02d}秒",
-        delta="まもなく発車" if is_urgent else f"あと{wait_min}分",
-        delta_color="inverse" if is_urgent else "normal"
-    )
-with m2:
-    dept_label = "恋ヶ窪発" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台発"
-    st.metric(
-        label=f"出発時刻 ({dept_label})",
-        value=current_route["departure_time"],
-        help="発車時刻"
-    )
-with m3:
-    arrv_label = "朝霞台着" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪着"
-    st.metric(
-        label=f"到着予想 ({arrv_label})",
-        value=current_route["arrival_time"],
-        delta=f"所要 {current_route['total_minutes']}分"
-    )
-
-if is_urgent:
-    st.error("⚠️ まもなく発車時刻です！乗り遅れにご注意ください。")
-
-# 本日の終電案内 ＆ カウントダウンカード（新設）
-last_train = get_last_train_info(st.session_state["direction"], now=now_jst)
-if last_train["is_expired"]:
-    st.markdown(f"""
-    <div class="last-train-card" style="border-color:#CBD5E1; background:rgba(241,245,249,0.75);">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="font-weight:700; font-size:0.9rem; color:#64748B; display:flex; align-items:center; gap:6px;">
-                <span class="material-symbols-outlined" style="font-size:18px; color:#94A3B8;">bedtime</span>
-                本日の終電（最終連絡便）
-            </div>
-            <div style="font-size:0.8rem; color:#64748B; font-weight:700;">
-                本日の運行終了（始発 {last_train['first_train_time']}）
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    lt_sec = last_train["seconds_until_last_train"]
-    lt_hours = lt_sec // 3600
-    lt_mins = (lt_sec % 3600) // 60
-    lt_urgent = (lt_sec <= 1800)  # 30分以内
-    lt_time_badge = f"あと {lt_hours}時間{lt_mins:02d}分" if lt_hours > 0 else f"あと {lt_mins}分！"
-    lt_badge_bg = "#EF4444" if lt_urgent else "#004B73"
-    
-    st.markdown(f"""
-    <div class="last-train-card" style="border-left: 5px solid {lt_badge_bg};">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-weight:800; font-size:0.92rem; color:#004B73; display:flex; align-items:center; gap:6px;">
-                <span class="material-symbols-outlined" style="font-size:20px; color:{lt_badge_bg};">bedtime</span>
-                本日の終電（最終連絡便）
-            </div>
-            <div style="background:{lt_badge_bg}; color:white; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; letter-spacing:0.02em; display:inline-flex; align-items:center; gap:3px;">
-                <span class="material-symbols-outlined" style="font-size:13px;">timer</span>
-                {lt_time_badge}
-            </div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-            <div style="font-size:1.12rem; font-weight:800; color:#0F172A;">
-                {escape_text(last_train['departure_station'])} <span style="font-family:'JetBrains Mono'; color:#004B73; font-size:1.3rem; margin-left:2px;">{last_train['departure_time']}</span> 発
-                <span style="font-size:0.85rem; color:#64748B; margin:0 6px;">➡</span>
-                {escape_text(last_train['destination_station'])} <span style="font-family:'JetBrains Mono'; color:#059669; font-size:1.3rem; margin-left:2px;">{last_train['arrival_time']}</span> 着
-            </div>
-            <div style="font-size:0.8rem; font-weight:700; color:#64748B;">
-                所要 {last_train['total_minutes']}分
-            </div>
-        </div>
-        <div style="font-size:0.75rem; color:#334155; background:rgba(255,255,255,0.85); padding:6px 12px; border-radius:10px; display:flex; align-items:center; gap:6px; border:1px solid rgba(226,232,240,0.8);">
-            <span class="material-symbols-outlined" style="font-size:15px; color:#0071A4;">route</span>
-            <span>{escape_text(last_train['route_summary'])}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 乗り継ぎルート詳細（タイムライン）
-st.markdown("""
-<div style="display:flex; align-items:center; gap:6px; margin: 20px 0 10px 0;">
-    <span class="material-symbols-outlined" style="color:#004B73; font-size:22px;">alt_route</span>
-    <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#004B73;">乗り継ぎルート詳細</h3>
-</div>
-""", unsafe_allow_html=True)
-
-for idx, leg in enumerate(current_route["legs"]):
-    line_name = escape_text(leg['line'])
-    dest = escape_text(leg['dest'])
-    from_st = escape_text(leg['from_station'])
-    to_st = escape_text(leg['to_station'])
-    f_time = escape_text(leg['from_time'])
-    t_time = escape_text(leg['to_time'])
-    duration = leg['duration']
-    color = leg['color']
-    platform = escape_text(leg.get('platform', ''))
-    note = escape_text(leg.get('note', ''))
-    wait_m = leg.get('wait_min', 0)
-
-    st.markdown(f"""
-    <div class="leg-card" style="border-left: 6px solid {color};">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <div style="font-weight:800; font-size:1.05rem; color:#0F172A; display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                <span>{from_st}</span>
-                <span style="font-family:'JetBrains Mono'; color:#004B73; font-size:1.1rem; margin-left:4px;">{f_time} 発</span>
-                <span style="font-size:0.75rem; color:#64748B; background:#F1F5F9; padding:2px 8px; border-radius:6px; margin-left:4px; display:inline-flex; align-items:center; gap:2px;">
-                    <span class="material-symbols-outlined" style="font-size:13px;">signpost</span>{platform}
-                </span>
-            </div>
-            <div style="font-size:0.8rem; font-weight:700; color:{color}; display:inline-flex; align-items:center; gap:2px;">
-                <span class="material-symbols-outlined" style="font-size:14px;">timer</span>乗車 {duration}分
-            </div>
-        </div>
-        <div style="font-size:0.85rem; font-weight:700; color:{color}; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
-            <span class="material-symbols-outlined" style="font-size:16px;">train</span>
-            <span>{line_name}（{dest}）</span>
-        </div>
-        <div style="font-size:0.75rem; color:#64748B; display:flex; align-items:center; gap:4px;">
-            <span class="material-symbols-outlined" style="font-size:14px; color:#94A3B8;">info</span>
-            <span>{note}</span>
-        </div>
-        <div style="margin-top:6px; font-weight:800; font-size:1.05rem; color:#0F172A; display:flex; align-items:center; gap:4px;">
-            <span class="material-symbols-outlined" style="font-size:16px; color:#059669;">arrow_forward</span>
-            <span>{to_st}</span>
-            <span style="font-family:'JetBrains Mono'; color:#059669; font-size:1.1rem; margin-left:4px;">{t_time} 着</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if idx < len(current_route["legs"]) - 1 and wait_m > 0:
-        badge = "✨ スムーズ接続" if wait_m <= 4 else f"待ち時間 {wait_m}分"
+# 終電詳細カード（折りたたみ）
+with st.expander(f"🌙 本日の終電案内（最終連絡便: {last_train['departure_time']}発）", expanded=False):
+    if last_train["is_expired"]:
+        st.markdown(f"<div style='font-size:0.82rem; color:#64748B;'>本日の運行は終了いたしました（始発 {last_train['first_train_time']}）</div>", unsafe_allow_html=True)
+    else:
         st.markdown(f"""
-        <div style="margin:-2px 0 6px 18px; font-size:0.8rem; font-weight:700; color:#0071A4; display:flex; align-items:center; gap:4px;">
-            <span class="material-symbols-outlined" style="font-size:16px; color:#0084B4;">directions_walk</span>
-            <span>乗り換え待ち: 約 <strong>{wait_m}</strong> 分 ({badge})</span>
+        <div style="font-size:0.82rem; color:#0F172A; line-height:1.6;">
+            <strong>{last_train['departure_station']} {last_train['departure_time']}発 ➡ {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 {last_train['total_minutes']}分）<br>
+            <span style="font-size:0.75rem; color:#475569;">ルート: {escape_text(last_train['route_summary'])}</span>
         </div>
         """, unsafe_allow_html=True)
 
-# その後の電車候補（比較・選択）
-if len(routes) > 1:
-    st.markdown("""
-    <div style="display:flex; align-items:center; gap:6px; margin: 20px 0 10px 0;">
-        <span class="material-symbols-outlined" style="color:#004B73; font-size:22px;">view_timeline</span>
-        <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#004B73;">その後の電車候補</h3>
+# ダイヤ改正ステータス（通知があれば表示）
+if revision_info.get("has_alert"):
+    announcements_html = ""
+    for ann in revision_info.get("announcements", []):
+        t = escape_text(ann.get("title", ""))
+        l = ann.get("link", "")
+        d = escape_text(ann.get("pub_date_display", ""))
+        link_tag = f"<a href='{l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:700;'>{t}</a>" if is_safe_url(l) else t
+        announcements_html += f"<div style='font-size:0.72rem; margin-top:2px;'>・{link_tag} ({d})</div>"
+
+    st.markdown(f"""
+    <div style="background:#FFFBEB; border:1px solid #F59E0B; border-radius:12px; padding:8px 12px; margin:8px 0; font-size:0.78rem;">
+        <div style="font-weight:800; color:#B45309; display:flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">campaign</span>{escape_text(revision_info['status_label'])}
+        </div>
+        {announcements_html}
     </div>
     """, unsafe_allow_html=True)
-    cols = st.columns(len(routes))
-    for i, r in enumerate(routes):
-        with cols[i]:
-            is_cur = (i == selected_idx)
-            label = "最速便" if i == 0 else f"+{i}本後"
-            btn_text = f"{label}\n{r['departure_time']} ➡ {r['arrival_time']}"
-            if st.button(btn_text, key=f"btn_route_{i}", use_container_width=True, type="primary" if is_cur else "secondary"):
-                st.session_state["selected_index"] = i
-                st.rerun()
 
 # 運行情報インスペクター
-with st.expander("ℹ️ 関連路線の運行状況・公式リンク", expanded=False):
+with st.expander("ℹ️ 4大路線の公式運行情報リンク", expanded=False):
     for line in LINE_INFO:
         col_name, col_stat, col_link = st.columns([3, 2, 2])
         with col_name:
-            st.markdown(f"**{escape_text(line['name'])}** ({escape_text(line['operator'])})")
+            st.markdown(f"<span style='font-size:0.8rem; font-weight:700;'>{escape_text(line['name'])}</span>", unsafe_allow_html=True)
         with col_stat:
-            st.markdown(f"<span style='color:#059669; font-weight:700; display:inline-flex; align-items:center; gap:3px;'><span class='material-symbols-outlined' style='font-size:14px;'>check_circle</span>{escape_text(line['status'])}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='color:#059669; font-weight:700; font-size:0.75rem;'>● {escape_text(line['status'])}</span>", unsafe_allow_html=True)
         with col_link:
             if is_safe_url(line['url']):
-                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='text-decoration:none; color:#0071A4; font-weight:700; font-size:0.85rem; display:inline-flex; align-items:center; gap:2px;'>公式運行情報 <span class='material-symbols-outlined' style='font-size:14px;'>open_in_new</span></a>", unsafe_allow_html=True)
+                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='font-size:0.75rem; color:#0071A4;'>公式↗</a>", unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
 if st.button("🔄 最新の時刻で再計算・更新", use_container_width=True):
     st.rerun()
 
-st.markdown("""
-<div style="text-align:center; color:#94A3B8; font-size:0.75rem; margin-top:20px;">
-    恋朝トレインタイマー © 2026<br>
-    東証公式J-Quantsスクリーナー統一アーキテクチャ準拠
+st.markdown(f"""
+<div style="text-align:center; color:#94A3B8; font-size:0.7rem; margin-top:14px;">
+    恋朝トレインタイマー © 2026 ｜ 収録: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}
 </div>
 """, unsafe_allow_html=True)
+
 
