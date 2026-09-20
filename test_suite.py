@@ -19,6 +19,7 @@ from transit_engine import (
     calculate_koigakubo_to_asakadai,
     calculate_asakadai_to_koigakubo,
     get_routes,
+    get_last_train_info,
     escape_text,
     is_safe_url,
 )
@@ -117,5 +118,44 @@ class TestTransitEngine(unittest.TestCase):
         self.assertFalse(is_safe_url("data:text/html,..."))
         self.assertFalse(is_safe_url(""))
 
+    def test_last_train_koigakubo_to_asakadai(self):
+        """恋ヶ窪 ➡ 朝霞台 終電ナビゲーションの判定テスト"""
+        # 夜21:00のケース
+        now_21 = datetime.datetime(2026, 9, 20, 21, 0, 0)
+        info_21 = get_last_train_info("koigakubo_to_asakadai", now=now_21)
+        self.assertEqual(info_21["departure_time"], "00:03")
+        self.assertEqual(info_21["arrival_time"], "00:45")
+        self.assertFalse(info_21["is_expired"])
+        self.assertEqual(info_21["seconds_until_last_train"], 3 * 3600 + 3 * 60)
+
+        # 深夜0:01のケース（あと2分）
+        now_0001 = datetime.datetime(2026, 9, 21, 0, 1, 0)
+        info_0001 = get_last_train_info("koigakubo_to_asakadai", now=now_0001)
+        self.assertFalse(info_0001["is_expired"])
+        self.assertEqual(info_0001["seconds_until_last_train"], 120)
+
+        # 深夜1:00のケース（運行終了）
+        now_0100 = datetime.datetime(2026, 9, 21, 1, 0, 0)
+        info_0100 = get_last_train_info("koigakubo_to_asakadai", now=now_0100)
+        self.assertTrue(info_0100["is_expired"])
+        self.assertEqual(info_0100["seconds_until_last_train"], 0)
+
+    def test_last_train_asakadai_to_koigakubo(self):
+        """朝霞台 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト"""
+        # 夜21:00のケース
+        now_21 = datetime.datetime(2026, 9, 20, 21, 0, 0)
+        info_21 = get_last_train_info("asakadai_to_koigakubo", now=now_21)
+        self.assertEqual(info_21["departure_time"], "23:45")
+        self.assertEqual(info_21["arrival_time"], "00:34")
+        self.assertFalse(info_21["is_expired"])
+        self.assertEqual(info_21["seconds_until_last_train"], 2 * 3600 + 45 * 60)
+
+        # 夜23:50のケース（運行終了）
+        now_2350 = datetime.datetime(2026, 9, 20, 23, 50, 0)
+        info_2350 = get_last_train_info("asakadai_to_koigakubo", now=now_2350)
+        self.assertTrue(info_2350["is_expired"])
+        self.assertEqual(info_2350["seconds_until_last_train"], 0)
+
 if __name__ == '__main__':
     unittest.main()
+
