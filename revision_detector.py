@@ -28,6 +28,18 @@ def parse_pub_date(date_str: str) -> Optional[datetime.datetime]:
     except Exception:
         return None
 
+MAX_RSS_BYTES = 512 * 1024  # 512 KB 上限（巨大ペイロード拒絶）
+
+def is_valid_news_url(url: str) -> bool:
+    """リンクURLの安全プロトコル検証（javascript:, data: 等の攻撃スキームを完全遮断）"""
+    if not url:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url)
+        return parsed.scheme in ("http", "https")
+    except Exception:
+        return False
+
 def fetch_timetable_news(timeout: float = 3.0) -> List[Dict[str, Any]]:
     """
     関連路線のダイヤ改正ニュースをGoogle News公開RSSから取得
@@ -44,7 +56,8 @@ def fetch_timetable_news(timeout: float = 3.0) -> List[Dict[str, Any]]:
     items_result = []
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            xml_data = resp.read()
+            # 512KBを超えるデータは読み込まずに遮断（DoS攻撃・メモリ枯渇防止）
+            xml_data = resp.read(MAX_RSS_BYTES)
             root = ET.fromstring(xml_data)
             items = root.findall(".//item")
 
@@ -54,10 +67,13 @@ def fetch_timetable_news(timeout: float = 3.0) -> List[Dict[str, Any]]:
                 pub_elem = item.find("pubDate")
                 source_elem = item.find("source")
 
-                title = title_elem.text if title_elem is not None and title_elem.text else ""
-                link = link_elem.text if link_elem is not None and link_elem.text else ""
-                pub_date_str = pub_elem.text if pub_elem is not None and pub_elem.text else ""
-                source_name = source_elem.text if source_elem is not None and source_elem.text else ""
+                title = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
+                link = link_elem.text.strip() if link_elem is not None and link_elem.text else ""
+                pub_date_str = pub_elem.text.strip() if pub_elem is not None and pub_elem.text else ""
+                source_name = source_elem.text.strip() if source_elem is not None and source_elem.text else ""
+
+                if not title or not is_valid_news_url(link):
+                    continue
 
                 if not title:
                     continue
