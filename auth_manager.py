@@ -40,9 +40,13 @@ class GlobalSecurityManager:
         self.lock_until = 0.0
 
     def record_failure(self) -> Tuple[bool, int]:
-        """失敗を記録し、制限超過時はロックアウト"""
+        """失敗を記録し、段階的遅延（Backoff）を適用。制限超過時はロックアウト"""
         now = time.time()
         self.failed_attempts += 1
+        # 人為的な段階的遅延（ブルートフォース攻撃を物理的に超低速化）
+        delay = min(2.0, self.failed_attempts * 0.4)
+        time.sleep(delay)
+        
         if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
             self.lock_until = now + LOCKOUT_DURATION_SECONDS
             return True, LOCKOUT_DURATION_SECONDS
