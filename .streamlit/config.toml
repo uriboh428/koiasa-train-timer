@@ -14,3 +14,4 @@ enableXsrfProtection = true
 enableCORS = true
 maxUploadSize = 5
 headless = true
+# Force rebuild: 2026-09-20 16:22
