@@ -150,10 +150,10 @@ KOKUBUNJI_SEIBU_DOWN = {
     0: [10, 31],
 }
 
-# 運行情報データ
+# 運行情報公式リンクデータ
 LINE_INFO = [
-    {"name": "西武国分寺線", "operator": "西武鉄道", "status": "平常運行", "url": "https://www.seiburailway.jp/railwayinfo/"},
-    {"name": "JR中央線（快速）", "operator": "JR東日本", "status": "平常運行", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
-    {"name": "JR武蔵野線", "operator": "JR東日本", "status": "平常運行", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
-    {"name": "東武東上線", "operator": "東武鉄道", "status": "平常運行", "url": "https://www.tobu.co.jp/railway/guide/unko/"},
+    {"name": "西武国分寺線", "operator": "西武鉄道", "url": "https://www.seiburailway.jp/railwayinfo/"},
+    {"name": "JR中央線（快速）", "operator": "JR東日本", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
+    {"name": "JR武蔵野線", "operator": "JR東日本", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
+    {"name": "東武東上線", "operator": "東武鉄道", "url": "https://www.tobu.co.jp/railway/guide/unko/"},
 ]
