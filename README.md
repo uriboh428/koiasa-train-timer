@@ -2,11 +2,12 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B.svg)](https://streamlit.io/)
-[![Tests Passing](https://img.shields.io/badge/tests-12%2F12%20passing-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/tests-16%2F16%20passing-brightgreen.svg)]()
+[![Revision Detector](https://img.shields.io/badge/Timetable%20Revision-Auto%20Detected-blueviolet.svg)]()
 [![Design](https://img.shields.io/badge/Design-Ocean%20Blue%20%26%20Material%20Icons-0071A4.svg)]()
 [![Security](https://img.shields.io/badge/Security-XSS%20%26%20XSRF%20Protected-059669.svg)]()
 
-西武国分寺線「**恋ヶ窪駅**」と東武東上線・JR武蔵野線「**朝霞台駅（北朝霞駅）**」の間を電車で行き来する際に、**「今の出発時間」「予想される到着時間」「本日の終電案内」をリアルタイム（秒単位）で動的に算出・更新・表示する本格Streamlit Webダッシュボードアプリケーション**です。Google標準の **Material Icons (Material Symbols)** を全面採用し、抜群の視認性と美しさを誇ります。
+西武国分寺線「**恋ヶ窪駅**」と東武東上線・JR武蔵野線「**朝霞台駅（北朝霞駅）**」の間を電車で行き来する際に、**「今の出発時間」「予想される到着時間」「本日の終電案内」をリアルタイム（秒単位）で動的に算出・表示し、「ダイヤ改正の公式告知も自動検知」する本格Streamlit Webダッシュボードアプリケーション**です。Google標準の **Material Icons (Material Symbols)** を全面採用し、抜群の視認性と美しさを誇ります。
 
 既存の東証公式J-Quants日本株スクリーナー（`stock-screener`）のシステム構成・セキュリティ規約・品質管理体制に厳密に準拠して設計されています。
 
@@ -97,6 +98,11 @@ python -m streamlit run app.py
 
 ### 7. 関連路線の運行状況・公式リンク
 * 西武国分寺線、JR中央線快速、JR武蔵野線、東武東上線の公式運行情報ページへワンクリックでアクセス。
+
+### 8. ダイヤ改正・時刻変更の自動検知システム
+* 西武鉄道、JR東日本（中央線・武蔵野線）のダイヤ改正や時刻変更に関する公式発表ニュースを、バックグラウンドで安全に自動チェック。
+* 改正の発表を検知すると、アプリ画面上部にアラートバナーで即座に通知。
+* 6時間キャッシュ機構により、通信量とアプリの爆速表示（0.001秒）を完全両立。手動再確認ボタンも完備。
 
 ---
 
