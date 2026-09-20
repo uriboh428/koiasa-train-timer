@@ -842,13 +842,10 @@ if credentials and not st.session_state["authenticated"]:
         st.query_params.clear()
         st.rerun()
 
-    # 2) 従来の暗証番号パラメータ互換 (?pin=... / ?pass=...)
-    query_pin = st.query_params.get("pin") or st.query_params.get("pass")
-    if query_pin and verify_password(str(query_pin), credentials["hash"], credentials["salt"]):
-        st.session_state["authenticated"] = True
-        sec_mgr.record_success()
+    # 2) 平文パスワードURLパラメータの完全廃止（セキュリティ保護・漏洩防止）
+    if st.query_params.get("pin") or st.query_params.get("pass"):
         st.query_params.clear()
-        st.rerun()
+        st.warning("⚠️ 平文パスワードによるURLアクセスはセキュリティ保護のため廃止されました。暗号トークンURLまたは画面からログインしてください。")
 
 # C. 通常ログイン・ロック画面（未認証時）
 if not st.session_state["authenticated"]:
@@ -924,7 +921,7 @@ is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
     <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#E2E8F0; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#0F172A;">Ver 2.5 (安定稼働版)</span>
+    <span style="background:#E2E8F0; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#0F172A;">Ver 2.6 (セキュリティ強化版)</span>
 </div>
 """, unsafe_allow_html=True)
 
