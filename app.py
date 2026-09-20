@@ -1205,7 +1205,11 @@ def render_hero_timer_fragment(
             </div>
             <div class="hero-arrow-block">
                 <div class="hero-duration-badge">約{total_minutes}分</div>
-                <div style="color:#64748B; font-size:1.1rem; font-weight:700;">➡</div>
+                <div style="display:flex; align-items:center; justify-content:center; margin-top:2px;">
+                    <svg width="24" height="13" viewBox="0 0 24 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));">
+                        <path d="M1 6.5H21M21 6.5L15.5 1.5M21 6.5L15.5 11.5" stroke="#FEF08A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
             </div>
             <div class="hero-st-block" style="text-align:right;">
                 <div class="hero-st-name">{arrv_station} 着</div>
