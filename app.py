@@ -913,38 +913,35 @@ if "selected_index" not in st.session_state:
 now_jst = datetime.datetime.now(JST)
 
 # ----------------------------------------------------
-# 1. 【最上部】行き先設定（ネイティブ st.radio + on_change コールバック）
-# on_change コールバックはスクリプト再実行「前」に呼ばれるため、
-# 1回目のタップから確実に方向が切り替わります。
+# 1. 【最上部】行き先設定（Segmented Control + 反転ボタン）
 # ----------------------------------------------------
-_DIR_OPTIONS = ["恋ヶ窪 → 朝霞台", "朝霞台 → 恋ヶ窪"]
-_DIR_MAP = {
-    "恋ヶ窪 → 朝霞台": "koigakubo_to_asakadai",
-    "朝霞台 → 恋ヶ窪": "asakadai_to_koigakubo",
-}
-_DIR_REVERSE = {v: k for k, v in _DIR_MAP.items()}
+if "direction" not in st.session_state:
+    st.session_state["direction"] = "koigakubo_to_asakadai"
 
 def _on_direction_change():
-    """ラジオ選択が変わったときに呼ばれるコールバック"""
-    chosen_label = st.session_state["_dir_radio"]
-    new_dir = _DIR_MAP.get(chosen_label, "koigakubo_to_asakadai")
-    if st.session_state["direction"] != new_dir:
+    st.session_state["selected_index"] = 0
+
+col_seg, col_rev = st.columns([4, 1])
+with col_seg:
+    _sel = st.segmented_control(
+        "行き先",
+        options=["koigakubo_to_asakadai", "asakadai_to_koigakubo"],
+        format_func=lambda x: "恋ヶ窪 → 朝霞台" if x == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪",
+        key="direction",
+        on_change=_on_direction_change,
+        selection_mode="single",
+        label_visibility="collapsed"
+    )
+    # Prevent deselection error
+    if _sel is None:
+        st.session_state["direction"] = "koigakubo_to_asakadai"
+
+with col_rev:
+    if st.button("⇅ 反転", use_container_width=True):
+        new_dir = "asakadai_to_koigakubo" if st.session_state["direction"] == "koigakubo_to_asakadai" else "koigakubo_to_asakadai"
         st.session_state["direction"] = new_dir
         st.session_state["selected_index"] = 0
-
-_current_label = _DIR_REVERSE.get(
-    st.session_state["direction"], "恋ヶ窪 → 朝霞台"
-)
-
-st.radio(
-    "行き先",
-    options=_DIR_OPTIONS,
-    index=_DIR_OPTIONS.index(_current_label),
-    key="_dir_radio",
-    on_change=_on_direction_change,
-    horizontal=True,
-    label_visibility="collapsed",
-)
+        st.rerun()
 
 # ダイヤ改正検知ステータス & 終電情報（確定した direction に基づく）
 revision_info = get_revision_status()
@@ -970,8 +967,9 @@ current_route = routes[selected_idx]
 dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
 arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
 
-def generate_hero_timer_html(
-    remaining_seconds: int,
+@st.fragment(run_every=datetime.timedelta(seconds=1))
+def render_hero_timer_fragment(
+    dept_timestamp_ms: int,
     dept_station: str,
     arrv_station: str,
     dept_time: str,
@@ -979,191 +977,38 @@ def generate_hero_timer_html(
     total_minutes: int,
     last_train_dept: str,
     last_train_duration: int,
-) -> str:
-    # サーバーサイドで初期表示用の分・秒を計算（JSフォールバック）
-    _init_min = remaining_seconds // 60
-    _init_sec = remaining_seconds % 60
-    _init_min_str = f"{_init_min:02d}"
-    _init_sec_str = f"{_init_sec:02d}"
-    return f"""<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * {{
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }}
-        html, body {{
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: transparent;
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-            letter-spacing: -0.015em;
-            -webkit-font-smoothing: antialiased;
-            user-select: none;
-        }}
-        .top-nav {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 2px 2px 7px 2px;
-        }}
-        .brand-wrap {{
-            display: flex;
-            align-items: baseline;
-            gap: 6px;
-        }}
-        .brand-title {{
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: #0F172A;
-            letter-spacing: -0.03em;
-        }}
-        .brand-tag {{
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: #64748B;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }}
-        .live-status-pill {{
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            padding: 3px 8px;
-            border-radius: 9999px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        }}
-        .live-dot {{
-            width: 6px;
-            height: 6px;
-            background-color: #10B981;
-            border-radius: 9999px;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-            animation: pulse 2s infinite;
-        }}
-        @keyframes pulse {{
-            0%, 100% {{ opacity: 1; transform: scale(1); }}
-            50% {{ opacity: 0.4; transform: scale(0.9); }}
-        }}
-        .live-clock {{
-            font-family: 'JetBrains Mono', monospace;
-            font-variant-numeric: tabular-nums;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #334155;
-        }}
+):
+    now_ms = get_timestamp_ms(datetime.datetime.now(JST))
+    left_sec = max(0, (dept_timestamp_ms - now_ms) // 1000)
+    min_left = left_sec // 60
+    sec_left = left_sec % 60
+    min_str = f"{min_left:02d}"
+    sec_str = f"{sec_left:02d}"
 
-        .hero-timer-card {{
-            background: #0F172A;
-            color: #FFFFFF;
-            border-radius: 18px;
-            padding: 13px 16px 12px 16px;
-            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }}
-        .hero-timer-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }}
-        .hero-micro-label {{
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: #94A3B8;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }}
-        .badge {{
-            font-size: 0.65rem;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 9999px;
-            letter-spacing: 0.04em;
-            display: inline-block;
-            transition: all 0.2s ease;
-        }}
-        .badge-normal {{
-            background: rgba(255, 255, 255, 0.12);
-            color: #E2E8F0;
-        }}
-        .badge-urgent {{
-            background: #EF4444;
-            color: #FFFFFF;
-            font-weight: 700;
-            animation: urgent-pulse 1.2s infinite;
-        }}
-        .badge-departed {{
-            background: #64748B;
-            color: #FFFFFF;
-        }}
-        @keyframes urgent-pulse {{
-            0%, 100% {{ opacity: 1; }}
-            50% {{ opacity: 0.6; }}
-        }}
-        .hero-timer-grid {{
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-        }}
-        .hero-digits {{
-            font-family: 'JetBrains Mono', monospace;
-            font-variant-numeric: tabular-nums;
-            font-size: 2.25rem;
-            font-weight: 700;
-            line-height: 1.05;
-            letter-spacing: -0.04em;
-            color: #F8FAFC;
-        }}
-        .hero-digits .unit {{
-            font-size: 1.05rem;
-            font-weight: 500;
-            color: #94A3B8;
-            margin: 0 2px;
-        }}
-        .hero-schedule-box {{
-            text-align: right;
-        }}
-        .hero-schedule-times {{
-            font-family: 'JetBrains Mono', monospace;
-            font-variant-numeric: tabular-nums;
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: #F8FAFC;
-            display: flex;
-            align-items: baseline;
-            justify-content: flex-end;
-            gap: 5px;
-        }}
-        .hero-schedule-times .arrow {{
-            color: #64748B;
-            font-size: 0.85rem;
-            font-weight: 400;
-        }}
-        .hero-schedule-times .arrival {{
-            color: #38BDF8;
-        }}
-        .hero-meta-row {{
-            font-size: 0.72rem;
-            color: #94A3B8;
-            margin-top: 2px;
-            display: flex;
-            gap: 6px;
-            justify-content: flex-end;
-        }}
-    </style>
-</head>
-<body>
+    if left_sec <= 0:
+        badge_class = "badge-departed"
+        badge_text = "発車しました"
+        min_str = "00"
+        sec_str = "00"
+        # 0秒になったら親を再実行して次の便に更新
+        if "reload_triggered" not in st.session_state:
+            st.session_state["reload_triggered"] = True
+            st.rerun()
+    elif left_sec <= 120:
+        if "reload_triggered" in st.session_state:
+            del st.session_state["reload_triggered"]
+        badge_class = "badge-urgent"
+        badge_text = "まもなく発車"
+    else:
+        if "reload_triggered" in st.session_state:
+            del st.session_state["reload_triggered"]
+        badge_class = "badge-normal"
+        badge_text = "NEXT DEPARTURE"
+
+    now = datetime.datetime.now(JST)
+    clock_str = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}"
+
+    html_snippet = f"""
     <div class="top-nav">
         <div class="brand-wrap">
             <span class="brand-title">KOIASA</span>
@@ -1173,19 +1018,19 @@ def generate_hero_timer_html(
             <span class="live-dot"></span>
             <span style="font-size:0.72rem; font-weight:600; color:#334155;">定刻ダイヤ</span>
             <span style="color:#CBD5E1; font-size:0.7rem; margin:0 1px;">|</span>
-            <span id="live-clock" class="live-clock">--:--:--</span>
+            <span class="live-clock">{clock_str}</span>
         </div>
     </div>
 
     <div class="hero-timer-card">
         <div class="hero-timer-header">
             <span class="hero-micro-label">COUNTDOWN</span>
-            <div><span id="hero-badge" class="badge badge-normal">NEXT DEPARTURE</span></div>
+            <div><span class="badge {badge_class}">{badge_text}</span></div>
         </div>
         <div class="hero-timer-grid">
             <div>
-                <div id="hero-countdown" class="hero-digits">
-                    <span>{_init_min_str}</span><span class="unit">m</span><span>{_init_sec_str}</span><span class="unit">s</span>
+                <div class="hero-digits">
+                    <span>{min_str}</span><span class="unit">m</span><span>{sec_str}</span><span class="unit">s</span>
                 </div>
                 <div style="font-size:0.7rem; color:#94A3B8; margin-top:3px; font-weight:500;">
                     終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train_dept}</span> 発（所要 {last_train_duration}分）
@@ -1205,88 +1050,167 @@ def generate_hero_timer_html(
             </div>
         </div>
     </div>
+    """
+    st.markdown(html_snippet, unsafe_allow_html=True)
 
-    <script>
-        (function() {{
-            // サーバーから渡された確定残り秒数
-            const initialSeconds = Math.max(0, parseInt("{remaining_seconds}", 10) || 0);
-            const startTime = Date.now();
-            let isReloading = false;
+st.markdown("""
+<style>
+    .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 2px 2px 7px 2px;
+    }
+    .brand-wrap {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+    .brand-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0F172A;
+        letter-spacing: -0.03em;
+    }
+    .brand-tag {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .live-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        padding: 3px 8px;
+        border-radius: 9999px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .live-dot {
+        width: 6px;
+        height: 6px;
+        background-color: #10B981;
+        border-radius: 9999px;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.9); }
+    }
+    .live-clock {
+        font-family: 'JetBrains Mono', monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #334155;
+    }
+    .hero-timer-card {
+        background: #0F172A;
+        color: #FFFFFF;
+        border-radius: 18px;
+        padding: 13px 16px 12px 16px;
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .hero-timer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    .hero-micro-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #94A3B8;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .badge {
+        font-size: 0.65rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        letter-spacing: 0.04em;
+        display: inline-block;
+        transition: all 0.2s ease;
+    }
+    .badge-normal {
+        background: rgba(255, 255, 255, 0.12);
+        color: #E2E8F0;
+    }
+    .badge-urgent {
+        background: #EF4444;
+        color: #FFFFFF;
+        font-weight: 700;
+        animation: urgent-pulse 1.2s infinite;
+    }
+    .badge-departed {
+        background: #64748B;
+        color: #FFFFFF;
+    }
+    @keyframes urgent-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    .hero-timer-grid {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    .hero-digits {
+        font-family: 'JetBrains Mono', monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 2.25rem;
+        font-weight: 700;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+        color: #F8FAFC;
+    }
+    .hero-digits .unit {
+        font-size: 1.05rem;
+        font-weight: 500;
+        color: #94A3B8;
+        margin: 0 2px;
+    }
+    .hero-schedule-box {
+        text-align: right;
+    }
+    .hero-schedule-times {
+        font-family: 'JetBrains Mono', monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-end;
+        gap: 5px;
+    }
+    .hero-schedule-times .arrow {
+        color: #64748B;
+        font-size: 0.85rem;
+        font-weight: 400;
+    }
+    .hero-schedule-times .arrival {
+        color: #38BDF8;
+    }
+    .hero-meta-row {
+        font-size: 0.72rem;
+        color: #94A3B8;
+        margin-top: 2px;
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-            function pad(n) {{
-                return (n < 10 ? '0' : '') + n;
-            }}
-
-            function tick() {{
-                const now = new Date();
-
-                // 1. トップバー現在時刻（端末時計で毎秒必ずリアルタイム更新）
-                const h = pad(now.getHours());
-                const m = pad(now.getMinutes());
-                const s = pad(now.getSeconds());
-                const clockEl = document.getElementById('live-clock');
-                if (clockEl) {{
-                    clockEl.textContent = h + ':' + m + ':' + s;
-                }}
-
-                // 2. カウントダウン計算（端末時計の経過ミリ秒を正確に引く）
-                const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
-                const leftSec = Math.max(0, initialSeconds - elapsedSec);
-
-                const countdownEl = document.getElementById('hero-countdown');
-                const badgeEl = document.getElementById('hero-badge');
-
-                if (leftSec <= 0) {{
-                    if (countdownEl) {{
-                        countdownEl.innerHTML = '<span>00</span><span class="unit">m</span><span>00</span><span class="unit">s</span>';
-                    }}
-                    if (badgeEl) {{
-                        badgeEl.className = 'badge badge-departed';
-                        badgeEl.textContent = '発車しました';
-                    }}
-                    if (!isReloading) {{
-                        isReloading = true;
-                        setTimeout(function() {{
-                            try {{
-                                if (window.parent && window.parent.location) {{
-                                    window.parent.location.reload();
-                                }} else {{
-                                    window.location.reload();
-                                }}
-                            }} catch (e) {{
-                                window.location.reload();
-                            }}
-                        }}, 2000);
-                    }}
-                }} else {{
-                    const minLeft = Math.floor(leftSec / 60);
-                    const secLeft = leftSec % 60;
-
-                    if (countdownEl) {{
-                        countdownEl.innerHTML = '<span>' + pad(minLeft) + '</span><span class="unit">m</span><span>' + pad(secLeft) + '</span><span class="unit">s</span>';
-                    }}
-
-                    if (badgeEl) {{
-                        if (leftSec <= 120) {{
-                            badgeEl.className = 'badge badge-urgent';
-                            badgeEl.textContent = 'まもなく発車';
-                        }} else {{
-                            badgeEl.className = 'badge badge-normal';
-                            badgeEl.textContent = 'NEXT DEPARTURE';
-                        }}
-                    }}
-                }}
-            }}
-
-            tick();
-            setInterval(tick, 250);
-        }})();
-    </script>
-</body>
-</html>"""
-
-hero_html = generate_hero_timer_html(
-    remaining_seconds=current_route["seconds_until_departure"],
+render_hero_timer_fragment(
+    dept_timestamp_ms=current_route["departure_timestamp_ms"],
     dept_station=dept_station,
     arrv_station=arrv_station,
     dept_time=current_route["departure_time"],
@@ -1295,9 +1219,6 @@ hero_html = generate_hero_timer_html(
     last_train_dept=last_train["departure_time"],
     last_train_duration=last_train["total_minutes"],
 )
-
-# 独立iframe内での完全自律型クライアント秒針実行
-components.html(hero_html, height=190, scrolling=False)
 
 
 # 4. 【統合メトロ・タイムラインボード】シームレスな1本線インフォグラフィック
