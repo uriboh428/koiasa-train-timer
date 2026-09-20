@@ -3,6 +3,14 @@ import html
 import urllib.parse
 from typing import List, Dict, Any, Optional
 
+JST = datetime.timezone(datetime.timedelta(hours=9))
+
+def get_timestamp_ms(dt: datetime.datetime) -> int:
+    """JST準拠のUNIXエポックミリ秒を取得"""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=JST)
+    return int(dt.timestamp() * 1000)
+
 def escape_text(text: object) -> str:
     """XSS防止のためのHTML特殊文字エスケープ"""
     if text is None:
@@ -135,6 +143,7 @@ def calculate_koigakubo_to_asakadai(
         "arrival_time": final_arrv.strftime("%H:%M"),
         "total_minutes": total_min,
         "seconds_until_departure": seconds_left,
+        "departure_timestamp_ms": get_timestamp_ms(leg1_dept),
         "legs": legs,
     }
 
@@ -208,6 +217,7 @@ def calculate_asakadai_to_koigakubo(
         "arrival_time": leg3_arrv.strftime("%H:%M"),
         "total_minutes": total_min,
         "seconds_until_departure": seconds_left,
+        "departure_timestamp_ms": get_timestamp_ms(leg1_dept),
         "legs": legs,
     }
 
