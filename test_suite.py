@@ -82,6 +82,8 @@ class TestTransitEngine(unittest.TestCase):
         self.assertGreaterEqual(result["total_minutes"], 30)
         self.assertLessEqual(result["total_minutes"], 50)
         self.assertEqual(result["seconds_until_departure"], 300)
+        self.assertIn("departure_timestamp_ms", result)
+        self.assertGreater(result["departure_timestamp_ms"], 0)
 
     def test_calculate_asakadai_to_koigakubo(self):
         """復路：朝霞台 ➡ 恋ヶ窪 の全行程計算整合性"""
@@ -95,6 +97,8 @@ class TestTransitEngine(unittest.TestCase):
         self.assertGreaterEqual(result["total_minutes"], 30)
         self.assertLessEqual(result["total_minutes"], 50)
         self.assertEqual(result["seconds_until_departure"], 420)
+        self.assertIn("departure_timestamp_ms", result)
+        self.assertGreater(result["departure_timestamp_ms"], 0)
 
     def test_get_routes(self):
         """get_routes関数が複数便を正しく生成するか"""
