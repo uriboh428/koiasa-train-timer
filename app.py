@@ -596,39 +596,13 @@ st.markdown("""
         color: #334155;
     }
 
-    /* ネイティブ風 Segmented Control (行き先切り替え) */
-    div[data-testid="stRadio"] {
-        margin-bottom: 0px !important;
-    }
-    div[data-testid="stRadio"] > div {
-        background: #E2E8F0;
-        border-radius: 12px;
-        padding: 3px;
-        gap: 2px !important;
-        display: flex;
-        border: 1px solid rgba(0, 0, 0, 0.04);
-    }
-    div[data-testid="stRadio"] label {
-        border-radius: 9px !important;
-        padding: 5px 10px !important;
-        margin: 0 !important;
-        font-size: 0.82rem !important;
-        font-weight: 600 !important;
-        color: #64748B !important;
-        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        flex: 1;
-        justify-content: center;
-        text-align: center;
-        cursor: pointer;
-        background: transparent !important;
-    }
-    div[data-testid="stRadio"] label:has(input:checked) {
-        background: #FFFFFF !important;
-        color: #0F172A !important;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
-    }
-    div[data-testid="stRadio"] input {
-        display: none !important;
+    /* 極上スイス・Segmented Control ボタン (行き先切り替え) */
+    .stButton > button {
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+        padding: 8px 12px !important;
+        transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
 
     /* プレシジョン・ヒーロータイマーカード (Ink Charcoal) */
@@ -926,21 +900,8 @@ if not st.session_state["authenticated"]:
     """, unsafe_allow_html=True)
     st.stop()
 
-def on_direction_changed():
-    """行き先ラジオボタン変更時のコールバック（即時反映＆便選択リセット）"""
-    selected_label = st.session_state.get("dir_radio_key")
-    if selected_label == "恋ヶ窪 → 朝霞台":
-        st.session_state["direction"] = "koigakubo_to_asakadai"
-    else:
-        st.session_state["direction"] = "asakadai_to_koigakubo"
-    st.session_state["selected_index"] = 0
-
 if "direction" not in st.session_state:
     st.session_state["direction"] = "koigakubo_to_asakadai"
-if "dir_radio_key" not in st.session_state:
-    st.session_state["dir_radio_key"] = (
-        "恋ヶ窪 → 朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪"
-    )
 if "offset_minutes" not in st.session_state:
     st.session_state["offset_minutes"] = 0
 if "pace" not in st.session_state:
@@ -951,36 +912,40 @@ if "selected_index" not in st.session_state:
 # 日本標準時（JST）の現在時刻
 now_jst = datetime.datetime.now(JST)
 
-# ダイヤ改正検知ステータス & 終電情報
+# ----------------------------------------------------
+# 1. 【最上部】行き先設定（Segmented 2連ボタン）
+# （ネイティブボタンにより、1回のタップで確実に即時切り替え。巻き戻りは物理的に発生しません）
+# ----------------------------------------------------
+col_b1, col_b2 = st.columns(2)
+is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
+
+with col_b1:
+    if st.button(
+        "恋ヶ窪 ➡ 朝霞台",
+        key="btn_dir_k2a",
+        use_container_width=True,
+        type="primary" if is_k2a else "secondary"
+    ):
+        if not is_k2a:
+            st.session_state["direction"] = "koigakubo_to_asakadai"
+            st.session_state["selected_index"] = 0
+            st.rerun()
+
+with col_b2:
+    if st.button(
+        "朝霞台 ➡ 恋ヶ窪",
+        key="btn_dir_a2k",
+        use_container_width=True,
+        type="primary" if not is_k2a else "secondary"
+    ):
+        if is_k2a:
+            st.session_state["direction"] = "asakadai_to_koigakubo"
+            st.session_state["selected_index"] = 0
+            st.rerun()
+
+# ダイヤ改正検知ステータス & 終電情報（確定した direction に基づく）
 revision_info = get_revision_status()
 last_train = get_last_train_info(st.session_state["direction"], now=now_jst)
-
-# ----------------------------------------------------
-# 1. 【最上部】行き先設定（Segmented Control）＆ ワンタップ反転
-# （計算の前に配置することで、1回で確実に切り替わり巻き戻りを100%防止）
-# ----------------------------------------------------
-col_dir, col_rev = st.columns([4.0, 1.0])
-with col_dir:
-    st.radio(
-        "進行方向",
-        options=["恋ヶ窪 → 朝霞台", "朝霞台 → 恋ヶ窪"],
-        key="dir_radio_key",
-        on_change=on_direction_changed,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-
-with col_rev:
-    if st.button("⇄", use_container_width=True, help="行き先を逆転"):
-        new_dir = (
-            "asakadai_to_koigakubo" if st.session_state["direction"] == "koigakubo_to_asakadai" else "koigakubo_to_asakadai"
-        )
-        st.session_state["direction"] = new_dir
-        st.session_state["dir_radio_key"] = (
-            "恋ヶ窪 → 朝霞台" if new_dir == "koigakubo_to_asakadai" else "朝霞台 → 恋ヶ窪"
-        )
-        st.session_state["selected_index"] = 0
-        st.rerun()
 
 # ----------------------------------------------------
 # 2. リアルタイム経路計算 & クライアント自律型秒針エンジン
@@ -1236,7 +1201,7 @@ def generate_hero_timer_html(
     <script>
         (function() {{
             // サーバーから渡された確定残り秒数
-            const initialSeconds = {remaining_seconds};
+            const initialSeconds = Math.max(0, parseInt("{remaining_seconds}", 10) || 0);
             const startTime = Date.now();
             let isReloading = false;
 
@@ -1247,7 +1212,7 @@ def generate_hero_timer_html(
             function tick() {{
                 const now = new Date();
 
-                // 1. トップバー現在時刻（端末時計で毎秒リアルタイム更新）
+                // 1. トップバー現在時刻（端末時計で毎秒必ずリアルタイム更新）
                 const h = pad(now.getHours());
                 const m = pad(now.getMinutes());
                 const s = pad(now.getSeconds());
@@ -1275,29 +1240,32 @@ def generate_hero_timer_html(
                         isReloading = true;
                         setTimeout(function() {{
                             try {{
-                                window.parent.location.reload();
+                                if (window.parent && window.parent.location) {{
+                                    window.parent.location.reload();
+                                }} else {{
+                                    window.location.reload();
+                                }}
                             }} catch (e) {{
                                 window.location.reload();
                             }}
-                        }}, 1500);
+                        }}, 2000);
                     }}
-                    return;
-                }}
+                }} else {{
+                    const minLeft = Math.floor(leftSec / 60);
+                    const secLeft = leftSec % 60;
 
-                const minLeft = Math.floor(leftSec / 60);
-                const secLeft = leftSec % 60;
+                    if (countdownEl) {{
+                        countdownEl.innerHTML = '<span>' + pad(minLeft) + '</span><span class="unit">m</span><span>' + pad(secLeft) + '</span><span class="unit">s</span>';
+                    }}
 
-                if (countdownEl) {{
-                    countdownEl.innerHTML = '<span>' + pad(minLeft) + '</span><span class="unit">m</span><span>' + pad(secLeft) + '</span><span class="unit">s</span>';
-                }}
-
-                if (badgeEl) {{
-                    if (leftSec <= 120) {{
-                        badgeEl.className = 'badge badge-urgent';
-                        badgeEl.textContent = 'まもなく発車';
-                    }} else {{
-                        badgeEl.className = 'badge badge-normal';
-                        badgeEl.textContent = 'NEXT DEPARTURE';
+                    if (badgeEl) {{
+                        if (leftSec <= 120) {{
+                            badgeEl.className = 'badge badge-urgent';
+                            badgeEl.textContent = 'まもなく発車';
+                        }} else {{
+                            badgeEl.className = 'badge badge-normal';
+                            badgeEl.textContent = 'NEXT DEPARTURE';
+                        }}
                     }}
                 }}
             }}
