@@ -1466,6 +1466,15 @@ if st.session_state.get("is_admin", False):
                 st.session_state["is_admin"] = False
                 st.rerun()
 
+        # パスワード変更完了時の即時案内メッセージ
+        if st.session_state.pop("user_pwd_updated_notice", False):
+            st.success("🎉 一般ログインパスワードを変更しました！今すぐ新しいパスワードでアクセスできます。")
+            st.info("💡 **クラウド永続化（再起動対策）**: サーバー再起動後も新パスワードを恒久保持したい場合は、ページ下部の「☁️ クラウド恒久保存」に表示されている最新コードを Streamlit Cloud の管理画面（Secrets）に貼り付けてください。")
+
+        if st.session_state.pop("admin_pwd_updated_notice", False):
+            st.success("🎉 管理者用マスターパスワードを変更しました！次回から新しいパスワードをご使用ください。")
+            st.info("💡 **クラウド永続化（再起動対策）**: サーバー再起動後も新パスワードを恒久保持したい場合は、ページ下部の「☁️ クラウド恒久保存」に表示されている最新コードを Streamlit Cloud の管理画面（Secrets）に貼り付けてください。")
+
         st.markdown("<div style='font-size:0.82rem; font-weight:700; color:#9A3412; margin:8px 0 2px 0;'>🔑 ① 一般ログインパスワードの変更（ご家族用）</div>", unsafe_allow_html=True)
         st.markdown("<p style='font-size:0.72rem; color:#78716C; margin:0 0 6px 0;'>ご家族に教える「閲覧用パスワード」を変更します。（※管理者パスワードは変わりません）</p>", unsafe_allow_html=True)
         with st.form("change_user_pwd_form", clear_on_submit=True):
@@ -1480,7 +1489,7 @@ if st.session_state.get("is_admin", False):
                     st.error("❌ 再確認用パスワードが一致しません。")
                 else:
                     if update_user_password(new_u_pwd):
-                        st.success("✅ 一般ログインパスワードを正常に変更しました！ご家族に新しいパスワードをお伝えください。")
+                        st.session_state["user_pwd_updated_notice"] = True
                         st.rerun()
                     else:
                         st.error("❌ パスワードの保存に失敗しました。")
@@ -1503,7 +1512,7 @@ if st.session_state.get("is_admin", False):
                     st.error("❌ 新しい管理者パスワードの再確認が一致しません。")
                 else:
                     if update_admin_password(new_a_pwd):
-                        st.success("✅ 管理者用マスターパスワードを正常に変更しました！次回から新しい管理者パスワードをご使用ください。")
+                        st.session_state["admin_pwd_updated_notice"] = True
                         st.rerun()
                     else:
                         st.error("❌ パスワードの保存に失敗しました。")

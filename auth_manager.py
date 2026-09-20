@@ -21,7 +21,7 @@ MAX_FAILED_ATTEMPTS = 5
 SEVERE_FAILED_ATTEMPTS = 10
 LOCKOUT_DURATION_SECONDS = 60
 SEVERE_LOCKOUT_DURATION_SECONDS = 300
-MIN_PASSWORD_LENGTH = 6
+MIN_PASSWORD_LENGTH = 4
 PBKDF2_ITERATIONS = 100_000
 
 
@@ -147,19 +147,52 @@ def verify_secure_token(token: str, salt: str, hash_val: str, token_salt: Option
 
 def load_auth_credentials() -> Optional[Dict[str, Any]]:
     """
-    設定された認証情報を取得（優先度: Streamlit Session > Streamlit Secrets > 環境変数 > auth_config.json）
+    設定された認証情報を取得（優先度: Session Override > auth_config.json (最新保存) > Streamlit Secrets > 環境変数）
     :return: {"hash": ..., "salt": ..., "token": ..., "token_salt": ...} または 未設定時 None
     """
-    # 0. セッション内の一時オーバーライド（再発行即時反映用）
+    # 0. セッション内の一時オーバーライド（パスワード変更・再発行即時反映用）
     session_token_salt = None
     try:
         import streamlit as st
-        if hasattr(st, "session_state") and "active_token_salt" in st.session_state:
-            session_token_salt = st.session_state["active_token_salt"]
+        if hasattr(st, "session_state"):
+            if "active_token_salt" in st.session_state:
+                session_token_salt = st.session_state["active_token_salt"]
+            if "override_credentials" in st.session_state:
+                override = st.session_state["override_credentials"]
+                if override and isinstance(override, dict) and override.get("user_hash"):
+                    if session_token_salt:
+                        override["token_salt"] = session_token_salt
+                        override["token"] = get_secure_token(override["user_salt"], override["user_hash"], session_token_salt)
+                    return override
     except Exception:
         pass
 
-    # 1. Streamlit Secrets の確認
+    # 1. auth_config.json の確認（管理者がアプリ画面で設定・保存した最新設定ファイルを最優先）
+    if os.path.exists(AUTH_CONFIG_FILE):
+        try:
+            with open(AUTH_CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                u_h = data.get("user_hash") or data.get("hash")
+                u_s = data.get("user_salt") or data.get("salt")
+                a_h = data.get("admin_hash") or u_h
+                a_s = data.get("admin_salt") or u_s
+                if u_h and u_s:
+                    ts = session_token_salt or data.get("token_salt")
+                    return {
+                        "user_hash": u_h,
+                        "user_salt": u_s,
+                        "admin_hash": a_h,
+                        "admin_salt": a_s,
+                        "hash": u_h,
+                        "salt": u_s,
+                        "token_salt": ts,
+                        "token": get_secure_token(u_s, u_h, ts),
+                        "source": "file"
+                    }
+        except Exception:
+            pass
+
+    # 2. Streamlit Secrets の確認（初期設定・フォールバック）
     try:
         import streamlit as st
         if hasattr(st, "secrets"):
@@ -198,7 +231,7 @@ def load_auth_credentials() -> Optional[Dict[str, Any]]:
     except Exception:
         pass
 
-    # 2. 環境変数の確認
+    # 3. 環境変数の確認
     env_u_h = os.environ.get("APP_PASSWORD_HASH")
     env_u_s = os.environ.get("APP_PASSWORD_SALT")
     if not env_u_h and os.environ.get("APP_PASSWORD"):
@@ -226,31 +259,6 @@ def load_auth_credentials() -> Optional[Dict[str, Any]]:
             "token": get_secure_token(env_u_s, env_u_h, ts),
             "source": "env"
         }
-
-    # 3. auth_config.json の確認
-    if os.path.exists(AUTH_CONFIG_FILE):
-        try:
-            with open(AUTH_CONFIG_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                u_h = data.get("user_hash") or data.get("hash")
-                u_s = data.get("user_salt") or data.get("salt")
-                a_h = data.get("admin_hash") or u_h
-                a_s = data.get("admin_salt") or u_s
-                if u_h and u_s:
-                    ts = session_token_salt or data.get("token_salt")
-                    return {
-                        "user_hash": u_h,
-                        "user_salt": u_s,
-                        "admin_hash": a_h,
-                        "admin_salt": a_s,
-                        "hash": u_h,
-                        "salt": u_s,
-                        "token_salt": ts,
-                        "token": get_secure_token(u_s, u_h, ts),
-                        "source": "file"
-                    }
-        except Exception:
-            pass
 
     return None
 
@@ -328,6 +336,31 @@ def regenerate_secure_token() -> str:
     return new_seed
 
 
+def _sync_session_credentials(data: Dict[str, Any]):
+    """セッションメモリに新認証情報を即時同期（即座に反映させる）"""
+    try:
+        import streamlit as st
+        if hasattr(st, "session_state"):
+            u_h = data.get("user_hash") or data.get("hash", "")
+            u_s = data.get("user_salt") or data.get("salt", "")
+            a_h = data.get("admin_hash") or u_h
+            a_s = data.get("admin_salt") or u_s
+            ts = data.get("token_salt")
+            st.session_state["override_credentials"] = {
+                "user_hash": u_h,
+                "user_salt": u_s,
+                "admin_hash": a_h,
+                "admin_salt": a_s,
+                "hash": u_h,
+                "salt": u_s,
+                "token_salt": ts,
+                "token": get_secure_token(u_s, u_h, ts),
+                "source": "memory_override"
+            }
+    except Exception:
+        pass
+
+
 def save_auth_credentials(
     user_password: str,
     admin_password: Optional[str] = None,
@@ -361,6 +394,7 @@ def save_auth_credentials(
         }
         with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+        _sync_session_credentials(data)
         return True
     except Exception:
         return False
@@ -391,6 +425,7 @@ def update_user_password(new_user_password: str) -> bool:
     try:
         with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+        _sync_session_credentials(data)
         return True
     except Exception:
         return False
@@ -421,6 +456,7 @@ def update_admin_password(new_admin_password: str) -> bool:
     try:
         with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+        _sync_session_credentials(data)
         return True
     except Exception:
         return False

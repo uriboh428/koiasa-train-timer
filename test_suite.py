@@ -644,6 +644,65 @@ class TestRevisionDetector(unittest.TestCase):
             "新しいトークンでは正常に認証できる必要があります"
         )
 
+    def test_password_update_and_immediate_activation(self):
+        """【Security & UX】パスワード変更後に即時有効化され、新パスワードでログイン成功・旧パスワードで拒絶されることを検証"""
+        import os
+        import json
+        from auth_manager import (
+            save_auth_credentials,
+            update_user_password,
+            update_admin_password,
+            load_auth_credentials,
+            verify_user_login,
+            verify_admin_access,
+            MIN_PASSWORD_LENGTH,
+            AUTH_CONFIG_FILE,
+        )
+
+        # 4文字以上のパスワードが許可されていること
+        self.assertEqual(MIN_PASSWORD_LENGTH, 4, "ご家族が使いやすいよう最小4文字に統一されていること")
+
+        # テスト用初期パスワード
+        init_user = "1234"
+        init_admin = "admin999"
+
+        # 初期保存
+        save_res = save_auth_credentials(init_user, init_admin)
+        self.assertTrue(save_res, "4文字の初期パスワードが正常に保存できること")
+
+        # 読み込み
+        creds = load_auth_credentials()
+        self.assertIsNotNone(creds)
+        self.assertTrue(verify_user_login(init_user, creds), "初期一般パスワードでログインできること")
+        self.assertTrue(verify_admin_access(init_admin, creds), "初期管理者パスワードで管理者認証できること")
+
+        # 一般パスワードを変更
+        new_user = "5678"
+        upd_res = update_user_password(new_user)
+        self.assertTrue(upd_res, "一般パスワードの変更が成功すること")
+
+        # 読み込み後の検証
+        updated_creds = load_auth_credentials()
+        self.assertTrue(verify_user_login(new_user, updated_creds), "変更後の新パスワードで即座にログインできること")
+        self.assertFalse(verify_user_login(init_user, updated_creds), "変更前の古いパスワードは確実に拒絶されること")
+
+        # 管理者パスワードを変更
+        new_admin = "newadmin2026"
+        upd_admin_res = update_admin_password(new_admin)
+        self.assertTrue(upd_admin_res, "管理者パスワードの変更が成功すること")
+
+        # 読み込み後の管理者認証検証
+        admin_updated_creds = load_auth_credentials()
+        self.assertTrue(verify_admin_access(new_admin, admin_updated_creds), "変更後の新管理者パスワードで認証できること")
+        self.assertFalse(verify_admin_access(init_admin, admin_updated_creds), "変更前の旧管理者パスワードは拒絶されること")
+
+        # クリーンアップ（テスト用設定ファイルの削除）
+        if os.path.exists(AUTH_CONFIG_FILE):
+            try:
+                os.remove(AUTH_CONFIG_FILE)
+            except Exception:
+                pass
+
 
 if __name__ == '__main__':
     unittest.main()
