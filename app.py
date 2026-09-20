@@ -196,10 +196,10 @@ KOKUBUNJI_SEIBU_DOWN = {
 }
 
 LINE_INFO = [
-    {"name": "西武国分寺線", "operator": "西武鉄道", "status": "平常運行", "url": "https://www.seiburailway.jp/railwayinfo/"},
-    {"name": "JR中央線（快速）", "operator": "JR東日本", "status": "平常運行", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
-    {"name": "JR武蔵野線", "operator": "JR東日本", "status": "平常運行", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
-    {"name": "東武東上線", "operator": "東武鉄道", "status": "平常運行", "url": "https://www.tobu.co.jp/railway/guide/unko/"},
+    {"name": "西武国分寺線", "operator": "西武鉄道", "url": "https://www.seiburailway.jp/railwayinfo/"},
+    {"name": "JR中央線（快速）", "operator": "JR東日本", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
+    {"name": "JR武蔵野線", "operator": "JR東日本", "url": "https://traininfo.jreast.co.jp/train_info/kanto.aspx"},
+    {"name": "東武東上線", "operator": "東武鉄道", "url": "https://www.tobu.co.jp/railway/guide/unko/"},
 ]
 
 # ==========================================
@@ -1163,7 +1163,7 @@ def generate_hero_timer_html(
         </div>
         <div class="live-status-pill">
             <span class="live-dot"></span>
-            <span style="font-size:0.72rem; font-weight:600; color:#334155;">平常運行</span>
+            <span style="font-size:0.72rem; font-weight:600; color:#334155;">定刻ダイヤ</span>
             <span style="color:#CBD5E1; font-size:0.7rem; margin:0 1px;">|</span>
             <span id="live-clock" class="live-clock">--:--:--</span>
         </div>
@@ -1487,25 +1487,29 @@ if revision_info.get("has_alert"):
     </div>
     """, unsafe_allow_html=True)
 
-# 運行情報インスペクター
-with st.expander("路線運行情報（公式リンク）", expanded=False):
+# 運行情報インスペクター（各社公式リアルタイム情報）
+with st.expander("路線運行情報（各社公式リアルタイム情報）", expanded=False):
+    st.markdown("""
+    <div style="font-size:0.75rem; color:#64748B; margin-bottom:10px; line-height:1.5;">
+        ※本アプリは所定時刻表（公式ダイヤ）に基づいてご案内しています。事故・遅延・運転見合わせなどの最新の運行状況は、以下の各鉄道会社公式ページにてご確認ください。
+    </div>
+    """, unsafe_allow_html=True)
     for line in LINE_INFO:
-        col_name, col_stat, col_link = st.columns([3, 2, 2])
+        col_name, col_link = st.columns([3, 2])
         with col_name:
-            st.markdown(f"<span style='font-size:0.8rem; font-weight:600;'>{escape_text(line['name'])}</span>", unsafe_allow_html=True)
-        with col_stat:
-            st.markdown(f"<span style='color:#10B981; font-weight:600; font-size:0.72rem;'>● {escape_text(line['status'])}</span>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:0.82rem; font-weight:700; color:#0F172A; padding:4px 0;'>{escape_text(line['name'])} <span style='font-size:0.7rem; color:#64748B; font-weight:500;'>({escape_text(line['operator'])})</span></div>", unsafe_allow_html=True)
         with col_link:
             if is_safe_url(line['url']):
-                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='font-size:0.75rem; color:#0284C7;'>公式 ↗</a>", unsafe_allow_html=True)
+                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='display:inline-block; width:100%; text-align:center; background:#F8FAFC; border:1px solid #CBD5E1; color:#0284C7; font-size:0.75rem; font-weight:600; padding:4px 8px; border-radius:8px; text-decoration:none;'>公式情報 ↗</a>", unsafe_allow_html=True)
 
 st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
-if st.button("最新時刻で再計算", use_container_width=True):
+if st.button("🔄 最新時刻で再計算", use_container_width=True):
     st.rerun()
 
 st.markdown(f"""
-<div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em;">
-    KOIASA TRANSIT SYSTEM © 2026 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}
+<div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
+    KOIASA TRANSIT SYSTEM © 2026 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
 
