@@ -839,12 +839,16 @@ if credentials and not st.session_state["authenticated"]:
     if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"]):
         st.session_state["authenticated"] = True
         sec_mgr.record_success()
+        st.query_params.clear()
+        st.rerun()
 
     # 2) 従来の暗証番号パラメータ互換 (?pin=... / ?pass=...)
     query_pin = st.query_params.get("pin") or st.query_params.get("pass")
     if query_pin and verify_password(str(query_pin), credentials["hash"], credentials["salt"]):
         st.session_state["authenticated"] = True
         sec_mgr.record_success()
+        st.query_params.clear()
+        st.rerun()
 
 # C. 通常ログイン・ロック画面（未認証時）
 if not st.session_state["authenticated"]:
@@ -1398,8 +1402,10 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
     # セキュア・アクセストークンURL発行
     if credentials and "token" in credentials:
         st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>ブラウザ履歴やアドレスバーにパスワードを残さず、ワンタップで安全に開くための暗号トークンです。スマートフォンのブックマークURLの末尾に追加してください。</p>", unsafe_allow_html=True)
-        st.code(f"?token={credentials['token']}", language="text")
+        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>パスワードを直接入力せず、暗号トークンで安全に開くための専用URLです。認証後はアドレスバーから自動で消去されるため、履歴にも残りません。</p>", unsafe_allow_html=True)
+        secure_link = f"https://koiasa-train-timer.streamlit.app/?token={credentials['token']}"
+        st.code(secure_link, language="text")
+        st.caption("※このURLをスマートフォンのホーム画面やブックマークに登録すると、安全かつワンタップで起動できます。")
 
     st.markdown("---")
     # Streamlit Cloud Secrets（永続化）ガイド
@@ -1418,7 +1424,7 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             st.cache_data.clear()
             st.rerun()
 
-    if st.button("🔒 ログアウト（再ロック）", use_container_width=True, help="画面をロックしてパスワード入力画面に戻す"):
+    if st.button("🔒 ログアウト（再ロック）", key="btn_logout_in_expander", use_container_width=True, help="画面をロックしてパスワード入力画面に戻す"):
         st.session_state["authenticated"] = False
         st.rerun()
 
@@ -1468,9 +1474,15 @@ with st.expander("路線運行情報（各社公式リアルタイム情報）",
             if is_safe_url(line['url']):
                 st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='display:inline-block; width:100%; text-align:center; background:#F8FAFC; border:1px solid #CBD5E1; color:#0284C7; font-size:0.75rem; font-weight:600; padding:4px 8px; border-radius:8px; text-decoration:none;'>公式情報 ↗</a>", unsafe_allow_html=True)
 
-st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
-if st.button("🔄 最新時刻で再計算", use_container_width=True):
-    st.rerun()
+st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+col_act1, col_act2 = st.columns([1, 1])
+with col_act1:
+    if st.button("🔄 最新時刻で再計算", key="btn_recalc_footer", use_container_width=True):
+        st.rerun()
+with col_act2:
+    if st.button("🔒 画面ロック (ログアウト)", key="btn_logout_footer", use_container_width=True, help="アプリを即座にロックしてパスワード入力画面に戻します"):
+        st.session_state["authenticated"] = False
+        st.rerun()
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
