@@ -1,10 +1,16 @@
 """
 恋朝トレインタイマー - セキュリティ認証マネージャー (Auth Manager)
-Cybersecurity CoE 基準: ソルト付き暗号化ハッシュ、タイミング攻撃耐性、ブルートフォース防御
+Cybersecurity CoE 基準:
+1. ソルト付き暗号化ハッシュ (SHA-256 + 32桁ランダムソルト)
+2. タイミング攻撃耐性 (hmac.compare_digest)
+3. プロセス全体共有型グローバル・ブルートフォース防御 (Global Lockout)
+4. 推測不能な暗号アクセストークンURL認証 (?token=...)
+5. Streamlit Secrets (クラウド永続化) 完全連携
 """
 import os
 import json
 import time
+import math
 import hmac
 import hashlib
 import secrets
@@ -14,6 +20,55 @@ AUTH_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "auth_config.json")
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_DURATION_SECONDS = 60
 MIN_PASSWORD_LENGTH = 4
+
+
+class GlobalSecurityManager:
+    """
+    全セッション・全ユーザー共有のレートリミッター
+    シークレットウィンドウや複数ブラウザによる総当たり攻撃をサーバー側で一括遮断
+    """
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self):
+        self.failed_attempts = 0
+        self.lock_until = 0.0
+
+    def record_failure(self) -> Tuple[bool, int]:
+        """失敗を記録し、制限超過時はロックアウト"""
+        now = time.time()
+        self.failed_attempts += 1
+        if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+            self.lock_until = now + LOCKOUT_DURATION_SECONDS
+            return True, LOCKOUT_DURATION_SECONDS
+        return False, 0
+
+    def record_success(self):
+        """成功時にカウンターを安全にリセット"""
+        self.failed_attempts = 0
+        self.lock_until = 0.0
+
+    def get_lockout_status(self) -> Tuple[bool, int]:
+        """
+        ロックアウト状態と残り秒数を判定
+        :return: (is_locked, remaining_seconds)
+        """
+        now = time.time()
+        if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+            if now < self.lock_until:
+                remaining = max(1, math.ceil(self.lock_until - now))
+                return True, remaining
+            else:
+                # ロックアウト期間経過により自動解除
+                self.failed_attempts = 0
+                self.lock_until = 0.0
+                return False, 0
+        return False, 0
 
 
 def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
@@ -40,27 +95,47 @@ def verify_password(password: str, stored_hash: str, stored_salt: str) -> bool:
     return hmac.compare_digest(calculated_hash, stored_hash)
 
 
+def get_secure_token(salt: str, hash_val: str) -> str:
+    """
+    パスワード平文をURLに含めずに自動認証するための、暗号学的一意アクセストークンを導出
+    （エントロピー 96bit: 約7.9×10^28 通り、推測不可能）
+    """
+    token_seed = f"{salt}:koiasa_secure_token:{hash_val}".encode("utf-8")
+    return hashlib.sha256(token_seed).hexdigest()[:24]
+
+
+def verify_secure_token(token: str, salt: str, hash_val: str) -> bool:
+    """セキュアアクセストークンを検証（タイミング攻撃耐性）"""
+    if not token or not salt or not hash_val:
+        return False
+    expected_token = get_secure_token(salt, hash_val)
+    return hmac.compare_digest(str(token).strip(), expected_token)
+
+
 def load_auth_credentials() -> Optional[Dict[str, str]]:
     """
     設定された認証情報を取得（優先度: Streamlit Secrets > 環境変数 > auth_config.json）
-    :return: {"hash": ..., "salt": ...} または 未設定時 None
+    :return: {"hash": ..., "salt": ..., "token": ...} または 未設定時 None
     """
     # 1. Streamlit Secrets の確認
     try:
         import streamlit as st
         if hasattr(st, "secrets"):
             if "APP_PASSWORD_HASH" in st.secrets and "APP_PASSWORD_SALT" in st.secrets:
+                h = str(st.secrets["APP_PASSWORD_HASH"])
+                s = str(st.secrets["APP_PASSWORD_SALT"])
                 return {
-                    "hash": str(st.secrets["APP_PASSWORD_HASH"]),
-                    "salt": str(st.secrets["APP_PASSWORD_SALT"]),
+                    "hash": h,
+                    "salt": s,
+                    "token": get_secure_token(s, h),
                     "source": "secrets"
                 }
             if "APP_PASSWORD" in st.secrets:
                 h, s = hash_password(str(st.secrets["APP_PASSWORD"]), "koiasa_static_salt_v1")
-                return {"hash": h, "salt": s, "source": "secrets"}
+                return {"hash": h, "salt": s, "token": get_secure_token(s, h), "source": "secrets"}
             if "APP_PIN" in st.secrets:
                 h, s = hash_password(str(st.secrets["APP_PIN"]), "koiasa_static_salt_v1")
-                return {"hash": h, "salt": s, "source": "secrets"}
+                return {"hash": h, "salt": s, "token": get_secure_token(s, h), "source": "secrets"}
     except Exception:
         pass
 
@@ -68,12 +143,17 @@ def load_auth_credentials() -> Optional[Dict[str, str]]:
     env_hash = os.environ.get("APP_PASSWORD_HASH")
     env_salt = os.environ.get("APP_PASSWORD_SALT")
     if env_hash and env_salt:
-        return {"hash": env_hash, "salt": env_salt, "source": "env"}
+        return {
+            "hash": env_hash,
+            "salt": env_salt,
+            "token": get_secure_token(env_salt, env_hash),
+            "source": "env"
+        }
 
     env_pass = os.environ.get("APP_PASSWORD") or os.environ.get("APP_PIN")
     if env_pass:
         h, s = hash_password(str(env_pass), "koiasa_static_salt_v1")
-        return {"hash": h, "salt": s, "source": "env"}
+        return {"hash": h, "salt": s, "token": get_secure_token(s, h), "source": "env"}
 
     # 3. auth_config.json の確認
     if os.path.exists(AUTH_CONFIG_FILE):
@@ -81,7 +161,14 @@ def load_auth_credentials() -> Optional[Dict[str, str]]:
             with open(AUTH_CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if "hash" in data and "salt" in data:
-                    return {"hash": data["hash"], "salt": data["salt"], "source": "file"}
+                    h = data["hash"]
+                    s = data["salt"]
+                    return {
+                        "hash": h,
+                        "salt": s,
+                        "token": get_secure_token(s, h),
+                        "source": "file"
+                    }
         except Exception:
             pass
 
@@ -100,7 +187,7 @@ def save_auth_credentials(password: str) -> bool:
             "hash": h,
             "salt": s,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "version": "1.0"
+            "version": "2.0"
         }
         with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -114,20 +201,21 @@ def is_auth_configured() -> bool:
     return load_auth_credentials() is not None
 
 
-import math
+def check_lockout_status(attempts: Optional[int] = None, lock_until: Optional[float] = None) -> Tuple[bool, int]:
+    """後方互換用ブルートフォース判定（引数指定時はその値、省略時はGlobalSecurityManagerを参照）"""
+    if attempts is not None and lock_until is not None:
+        now = time.time()
+        if attempts >= MAX_FAILED_ATTEMPTS:
+            if now < lock_until:
+                return True, max(1, math.ceil(lock_until - now))
+            else:
+                return False, 0
+        return False, 0
+    manager = GlobalSecurityManager.get_instance()
+    return manager.get_lockout_status()
 
 
-def check_lockout_status(attempts: int, lock_until: float) -> Tuple[bool, int]:
-    """
-    ブルートフォース攻撃防御のロック状態を判定
-    :return: (is_locked, remaining_seconds)
-    """
-    current_time = time.time()
-    if attempts >= MAX_FAILED_ATTEMPTS:
-        if current_time < lock_until:
-            remaining = max(1, math.ceil(lock_until - current_time))
-            return True, remaining
-        else:
-            # ロック解除時刻を経過
-            return False, 0
-    return False, 0
+def get_secrets_toml_template(password: str, salt: Optional[str] = None) -> str:
+    """Streamlit Cloud Secrets に設定するTOML設定文字列を生成"""
+    h, s = hash_password(password, salt)
+    return f'APP_PASSWORD_HASH = "{h}"\nAPP_PASSWORD_SALT = "{s}"'
