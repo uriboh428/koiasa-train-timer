@@ -510,7 +510,7 @@ st.markdown("""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       Goodpatch Neo-Tokyo Metro Design System (Ver 3.3)
+       Goodpatch Neo-Tokyo Metro Design System (Ver 3.4)
        Human-Centered Design / Apple HIG & Linear Precision Spec
        ========================================================================== */
     :root {
@@ -961,7 +961,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.3 (時間連動スマートデフォルト版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.4 (Goodpatch洗練デザイン版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1035,7 +1035,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">Ver 3.3 (時間連動スマートデフォルト版)</span>
+        <span class="version-tag">Ver 3.4 (Goodpatch洗練デザイン版)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1557,7 +1557,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.3 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.4 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
