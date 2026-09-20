@@ -504,13 +504,16 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 st.markdown("""
 <meta name="robots" content="noindex, nofollow, noarchive">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       Goodpatch Neo-Tokyo Metro Design System (Ver 3.5)
+       Goodpatch Neo-Tokyo Metro Design System (Ver 3.6)
        Human-Centered Design / Apple HIG & Linear Precision Spec
        ========================================================================== */
     :root {
@@ -965,7 +968,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.5 (管理者権限保護 ＆ 家族安心版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.6 (完全ロール分離 ＆ 家族安心ゼロトラスト版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1040,7 +1043,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">Ver 3.5 (管理者権限保護 ＆ 家族安心版)</span>
+        <span class="version-tag">Ver 3.6 (完全ロール分離 ＆ 家族安心ゼロトラスト版)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1579,16 +1582,19 @@ else:
 st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 col_act1, col_act2 = st.columns([1, 1])
 with col_act1:
-    if st.button("🔄 最新時刻で再計算", key="btn_recalc_footer", use_container_width=True):
+    if st.button("🔄 最新情報で再計算", key="btn_recalc_footer", use_container_width=True, help="最新のダイヤ情報とキャッシュをクリアして再計算します"):
+        st.cache_data.clear()
         st.rerun()
 with col_act2:
     if st.button("🔒 画面ロック (ログアウト)", key="btn_logout_footer", use_container_width=True, help="アプリを即座にロックしてパスワード入力画面に戻します"):
         st.session_state["authenticated"] = False
+        st.session_state["is_admin"] = False
+        st.cache_data.clear()
         st.rerun()
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.5 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.6 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
