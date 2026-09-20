@@ -542,10 +542,10 @@ st.markdown("""
         vertical-align: middle;
     }
     .block-container {
-        padding-top: 0.35rem !important;
+        padding-top: 0.25rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 0.75rem !important;
-        padding-right: 0.75rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
         max-width: 480px;
     }
 
@@ -562,7 +562,7 @@ st.markdown("""
         gap: 6px;
     }
     .brand-title {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         font-weight: 800;
         color: #0F172A;
         letter-spacing: -0.03em;
@@ -599,33 +599,55 @@ st.markdown("""
         color: #334155;
     }
 
-    /* 極上スイス・Segmented Control ボタン (行き先切り替え) */
+    /* モバイル最適化ボタンスタイリング（Apple HIG 準拠 48px タップターゲット） */
     .stButton > button {
         border-radius: 12px !important;
         font-weight: 700 !important;
-        font-size: 0.85rem !important;
-        padding: 8px 12px !important;
+        font-size: 0.88rem !important;
+        min-height: 48px !important;
+        padding: 8px 10px !important;
+        border: 1px solid #E2E8F0 !important;
+        background: #FFFFFF !important;
+        color: #334155 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
         transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        white-space: pre-line !important;
+        line-height: 1.25 !important;
+    }
+    .stButton > button:hover {
+        background: #F8FAFC !important;
+        color: #0F172A !important;
+        border-color: #CBD5E1 !important;
+    }
+    .stButton > button[kind="primary"] {
+        background: #004B73 !important;
+        color: #FFFFFF !important;
+        border-color: #003350 !important;
+        box-shadow: 0 2px 6px rgba(0, 75, 115, 0.25) !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: #003350 !important;
+        border-color: #002238 !important;
     }
 
-    /* プレシジョン・ヒーロータイマーカード (Ink Charcoal) */
+    /* モバイル特化・プレシジョン・ヒーロータイマーカード (Ink & Mediterranean Blue) */
     .hero-timer-card {
-        background: #0F172A;
+        background: linear-gradient(150deg, #0A1424 0%, #0F172A 60%, #002A44 100%);
         color: #FFFFFF;
-        border-radius: 18px;
-        padding: 14px 16px 12px 16px;
-        margin: 8px 0 10px 0;
-        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 16px 18px 14px 18px;
+        margin: 6px 0 10px 0;
+        box-shadow: 0 6px 24px -4px rgba(0, 42, 68, 0.3), 0 2px 6px rgba(15, 23, 42, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.12);
     }
     .hero-timer-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
     }
     .hero-micro-label {
-        font-size: 0.65rem;
+        font-size: 0.68rem;
         font-weight: 700;
         color: #94A3B8;
         letter-spacing: 0.08em;
@@ -634,55 +656,79 @@ st.markdown("""
         align-items: center;
         gap: 4px;
     }
-    .hero-timer-grid {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
+    .hero-digits-wrap {
+        text-align: center;
+        padding: 4px 0 8px 0;
     }
     .hero-digits {
         font-family: 'JetBrains Mono', monospace;
         font-variant-numeric: tabular-nums;
-        font-size: 2.25rem;
-        font-weight: 700;
-        line-height: 1.05;
+        font-size: 2.85rem;
+        font-weight: 800;
+        line-height: 1.0;
         letter-spacing: -0.04em;
-        color: #F8FAFC;
+        color: #FFFFFF;
+        text-shadow: 0 2px 12px rgba(0,0,0,0.4);
     }
     .hero-digits .unit {
-        font-size: 1.05rem;
-        font-weight: 500;
+        font-size: 1.1rem;
+        font-weight: 600;
         color: #94A3B8;
-        margin: 0 2px;
+        margin: 0 3px 0 1px;
     }
-    .hero-schedule-box {
-        text-align: right;
+    .hero-schedule-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 8px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-top: 4px;
     }
-    .hero-schedule-times {
+    .hero-st-block {
+        display: flex;
+        flex-direction: column;
+    }
+    .hero-st-name {
+        font-size: 0.8rem;
+        color: #94A3B8;
+        font-weight: 600;
+    }
+    .hero-st-time {
         font-family: 'JetBrains Mono', monospace;
         font-variant-numeric: tabular-nums;
-        font-size: 1.15rem;
-        font-weight: 700;
+        font-size: 1.35rem;
+        font-weight: 800;
         color: #F8FAFC;
-        display: flex;
-        align-items: baseline;
-        justify-content: flex-end;
-        gap: 5px;
+        line-height: 1.15;
     }
-    .hero-schedule-times .arrow {
-        color: #64748B;
-        font-size: 0.85rem;
-        font-weight: 400;
-    }
-    .hero-schedule-times .arrival {
+    .hero-st-time.arrival {
         color: #38BDF8;
     }
-    .hero-meta-row {
+    .hero-arrow-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+    .hero-duration-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #E2E8F0;
+        background: rgba(56, 189, 248, 0.18);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        padding: 2px 8px;
+        border-radius: 9999px;
+    }
+    .hero-last-train-row {
         font-size: 0.72rem;
         color: #94A3B8;
-        margin-top: 2px;
+        margin-top: 8px;
         display: flex;
-        gap: 6px;
-        justify-content: flex-end;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 4px;
     }
 
     /* 統合メトロ・タイムラインボード (Seamless White Board) */
@@ -705,73 +751,6 @@ st.markdown("""
         justify-content: space-between;
         align-items: center;
     }
-    .metro-leg-row {
-        display: grid;
-        grid-template-columns: 20px 1fr auto;
-        gap: 10px;
-        align-items: center;
-        padding: 4px 0;
-    }
-    .metro-rail-col {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        height: 100%;
-    }
-    .metro-station-node {
-        width: 10px;
-        height: 10px;
-        border-radius: 9999px;
-        border: 2.5px solid #0F172A;
-        background: #FFFFFF;
-        box-sizing: border-box;
-    }
-    .metro-rail-segment {
-        width: 2.5px;
-        flex-grow: 1;
-        min-height: 18px;
-        border-radius: 2px;
-    }
-    .metro-transfer-bar {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        background: #F8FAFC;
-        border-radius: 6px;
-        padding: 2px 8px;
-        margin: 2px 0 2px 28px;
-        font-size: 0.72rem;
-        color: #475569;
-        font-weight: 600;
-        border: 1px dashed #CBD5E1;
-    }
-
-    /* ボタンスタイリングの洗練 */
-    .stButton > button {
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        font-size: 0.8rem !important;
-        padding: 4px 10px !important;
-        border: 1px solid #E2E8F0 !important;
-        background: #FFFFFF !important;
-        color: #334155 !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
-        transition: all 0.15s ease !important;
-    }
-    .stButton > button:hover {
-        background: #F8FAFC !important;
-        color: #0F172A !important;
-        border-color: #CBD5E1 !important;
-    }
-    .stButton > button[kind="primary"] {
-        background: #0F172A !important;
-        color: #FFFFFF !important;
-        border-color: #0F172A !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background: #1E293B !important;
-        border-color: #1E293B !important;
-    }
 
     /* エキスパンダーの洗練 */
     div[data-testid="stExpander"] {
@@ -784,9 +763,9 @@ st.markdown("""
     }
     div[data-testid="stExpander"] details summary {
         font-weight: 700 !important;
-        font-size: 0.82rem !important;
+        font-size: 0.85rem !important;
         color: #334155 !important;
-        padding: 10px 14px !important;
+        padding: 12px 14px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -860,7 +839,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.1 (セキュリティ強化版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.2 (スマホ最適化UI版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -925,14 +904,15 @@ is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
     <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.1 (セキュリティ強化版)</span>
+    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.2 (スマホ最適化UI版)</span>
 </div>
 """, unsafe_allow_html=True)
 
 col_d1, col_d2, col_rv = st.columns([5, 5, 2])
 with col_d1:
+    btn_k2a_text = "📍 恋ヶ窪 ➡ 朝霞台" if is_k2a else "恋ヶ窪 ➡ 朝霞台"
     if st.button(
-        "恋ヶ窪 ➡ 朝霞台",
+        btn_k2a_text,
         key="btn_dir_k2a",
         type="primary" if is_k2a else "secondary",
         use_container_width=True,
@@ -942,8 +922,9 @@ with col_d1:
         st.rerun()
 
 with col_d2:
+    btn_a2k_text = "📍 朝霞台 ➡ 恋ヶ窪" if not is_k2a else "朝霞台 ➡ 恋ヶ窪"
     if st.button(
-        "朝霞台 ➡ 恋ヶ窪",
+        btn_a2k_text,
         key="btn_dir_a2k",
         type="primary" if not is_k2a else "secondary",
         use_container_width=True,
@@ -953,7 +934,7 @@ with col_d2:
         st.rerun()
 
 with col_rv:
-    if st.button("⇄", key="btn_dir_rev", use_container_width=True, help="行き先を反転"):
+    if st.button("⇄", key="btn_dir_rev", use_container_width=True, help="行き先を瞬時に反転"):
         st.session_state["direction"] = "asakadai_to_koigakubo" if is_k2a else "koigakubo_to_asakadai"
         st.session_state["selected_index"] = 0
         st.rerun()
@@ -1039,30 +1020,31 @@ def render_hero_timer_fragment(
 
     <div class="hero-timer-card">
         <div class="hero-timer-header">
-            <span class="hero-micro-label">COUNTDOWN</span>
+            <span class="hero-micro-label">⏱️ 発車カウントダウン</span>
             <div><span class="badge {badge_class}">{badge_text}</span></div>
         </div>
-        <div class="hero-timer-grid">
-            <div>
-                <div class="hero-digits">
-                    <span id="hero-min-str">{min_str}</span><span class="unit">m</span><span id="hero-sec-str">{sec_str}</span><span class="unit">s</span>
-                </div>
-                <div style="font-size:0.7rem; color:#94A3B8; margin-top:3px; font-weight:500;">
-                    終電: <span style="font-family:'JetBrains Mono'; font-weight:600; color:#CBD5E1;">{last_train_dept}</span> 発（所要 {last_train_duration}分）
-                </div>
+        <div class="hero-digits-wrap">
+            <div class="hero-digits">
+                <span id="hero-min-str">{min_str}</span><span class="unit">分</span><span id="hero-sec-str">{sec_str}</span><span class="unit">秒</span>
             </div>
-            <div class="hero-schedule-box">
-                <div class="hero-schedule-times">
-                    <span>{dept_station}</span>
-                    <span>{dept_time}</span>
-                    <span class="arrow">→</span>
-                    <span>{arrv_station}</span>
-                    <span class="arrival">{arrv_time}</span>
-                </div>
-                <div class="hero-meta-row">
-                    <span>所要時間 約<strong style="color:#F8FAFC; font-weight:700;">{total_minutes}</strong>分</span>
-                </div>
+        </div>
+        <div class="hero-schedule-bar">
+            <div class="hero-st-block">
+                <div class="hero-st-name">{dept_station} 発</div>
+                <div class="hero-st-time">{dept_time}</div>
             </div>
+            <div class="hero-arrow-block">
+                <div class="hero-duration-badge">約{total_minutes}分</div>
+                <div style="color:#64748B; font-size:1.1rem; font-weight:700;">➡</div>
+            </div>
+            <div class="hero-st-block" style="text-align:right;">
+                <div class="hero-st-name">{arrv_station} 着</div>
+                <div class="hero-st-time arrival">{arrv_time}</div>
+            </div>
+        </div>
+        <div class="hero-last-train-row">
+            <span>🌙 本日の終電案内</span>
+            <span style="font-family:'JetBrains Mono'; font-weight:700; color:#E2E8F0;">{dept_station} {last_train_dept} 発（所要 {last_train_duration}分）</span>
         </div>
     </div>
     <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="
@@ -1345,17 +1327,18 @@ st.markdown(metro_html, unsafe_allow_html=True)
 # 二次情報（その後の電車候補・詳細設定・終電・ダイヤ改正）
 # -------------------------------------------------------------
 if len(routes) > 1:
-    st.markdown("""
-    <div style="font-size:0.72rem; font-weight:700; color:#64748B; letter-spacing:0.06em; text-transform:uppercase; margin: 8px 2px 4px 2px;">
-        SUBSEQUENT DEPARTURES
+    st.markdown(f"""
+    <div style="font-size:0.75rem; font-weight:800; color:#475569; letter-spacing:0.04em; margin: 12px 2px 6px 2px; display:flex; justify-content:space-between; align-items:center;">
+        <span>📋 その他の便を比較（タップで切替）</span>
+        <span style="font-size:0.68rem; color:#94A3B8; font-weight:600;">全{len(routes)}候補</span>
     </div>
     """, unsafe_allow_html=True)
     cols = st.columns(len(routes))
     for i, r in enumerate(routes):
         with cols[i]:
             is_cur = (i == selected_idx)
-            label = "最速便" if i == 0 else f"+{i}本後"
-            btn_text = f"{label} {r['departure_time']}→{r['arrival_time']}"
+            label = "★ 最速便" if i == 0 else f"+{i}本後"
+            btn_text = f"{label}\n{r['departure_time']} ➡ {r['arrival_time']}"
             if st.button(btn_text, key=f"btn_route_{i}", use_container_width=True, type="primary" if is_cur else "secondary"):
                 st.session_state["selected_index"] = i
                 st.rerun()
@@ -1593,7 +1576,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.1 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.2 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
