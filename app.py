@@ -19,6 +19,7 @@ from auth_manager import (
     verify_password,
     get_secure_token,
     verify_secure_token,
+    regenerate_secure_token,
     GlobalSecurityManager,
     get_secrets_toml_template,
     generate_token_link,
@@ -500,6 +501,7 @@ st.set_page_config(
 # (Linear / Raycast / Swiss SBB 基準の極小ミニマリズム・脱臭UI)
 # -----------------------------------------------------------------------------
 st.markdown("""
+<meta name="robots" content="noindex, nofollow, noarchive">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -837,7 +839,7 @@ if credentials is None:
 if credentials and not st.session_state["authenticated"]:
     # 1) 推測不能な暗号アクセストークンによる認証 (?token=...)
     query_token = st.query_params.get("token")
-    if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"]):
+    if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"], credentials.get("token_salt")):
         st.session_state["authenticated"] = True
         sec_mgr.record_success()
         st.query_params.clear()
@@ -858,7 +860,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#38BDF8;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#004B73; margin:0 0 4px 0;">恋朝トレインタイマー</h2>
-        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.0 (最新稼働版)</div>
+        <div style="display:inline-block; background:#DCFCE7; border:1px solid #86EFAC; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#15803D; margin-bottom:10px;">Ver 3.1 (セキュリティ強化版)</div>
         <p style="font-size:0.8rem; color:#64748B; margin:0 0 16px 0;">このアプリはプライベート（非公開）設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -923,7 +925,7 @@ is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
     <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.0 (コピー稼働版)</span>
+    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.1 (セキュリティ強化版)</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1506,13 +1508,19 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
         st.code(init_display_url, language="text")
         st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLが確実にコピーされます。")
 
+        # ワンタップURLの即時再発行・失効ボタン
+        if st.button("🔄 共有URLを再発行（古いURLを無効化）", key="btn_regen_token", use_container_width=True, help="万が一の誤送信時などに、古いURLを即座に使えなくして新しいURLを発行します"):
+            regenerate_secure_token()
+            st.success("✅ 新しい共有URLを発行しました！これまでの古いURLはすべて無効化されました。")
+            st.rerun()
+
     st.markdown("---")
-    # Streamlit Cloud Secrets（永続化）ガイド
+    # Streamlit Cloud Secrets（永続化）ガイド（折りたたみ式で普段は目隠し）
     if credentials:
-        st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>☁️ クラウド恒久保存（Secrets設定）</div>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>Streamlit Cloud の再起動時にも設定を100%保持したい場合は、Streamlit管理画面（Settings > Secrets）に以下を貼り付けてください。</p>", unsafe_allow_html=True)
-        secrets_toml = get_secrets_toml_template("", credentials["salt"]).replace('""', f'"{credentials["hash"]}"')
-        st.code(f'APP_PASSWORD_HASH = "{credentials["hash"]}"\nAPP_PASSWORD_SALT = "{credentials["salt"]}"', language="toml")
+        with st.expander("☁️ クラウド恒久保存（Secrets設定 - 上級者向け）", expanded=False):
+            st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>Streamlit Cloud の再起動時にも設定を100%保持したい場合は、Streamlit管理画面（Settings > Secrets）に以下を貼り付けてください。</p>", unsafe_allow_html=True)
+            secrets_toml = get_secrets_toml_template("", credentials["salt"], credentials.get("token_salt")).replace('""', f'"{credentials["hash"]}"')
+            st.code(secrets_toml, language="toml")
 
     st.markdown("---")
     c_chk1, c_chk2 = st.columns([3, 2])
@@ -1585,7 +1593,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 3.0 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.1 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
