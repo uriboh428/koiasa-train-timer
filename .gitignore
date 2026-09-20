@@ -2,6 +2,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 .env
-github_config.json
+.env.*
 *.log
 deploy/
+github_config.json
+.streamlit/secrets.toml
+auth_config.json
+*.key
+*.pem
