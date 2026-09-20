@@ -922,7 +922,7 @@ is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 st.markdown("""
 <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-bottom: 6px; font-size:0.7rem; color:#64748B; border-bottom: 1px solid #E2E8F0;">
     <span style="font-weight:700; color:#0F172A;">🚆 恋朝トレインタイマー</span>
-    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 2.9 (共有完了版)</span>
+    <span style="background:#DCFCE7; border:1px solid #86EFAC; padding:2px 8px; border-radius:6px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#15803D;">Ver 3.0 (コピー稼働版)</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1404,71 +1404,106 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
         st.markdown("<div style='font-size:0.85rem; font-weight:800; color:#004B73; margin-bottom:4px;'>🔗 安全なワンタップ起動URL（トークン方式）</div>", unsafe_allow_html=True)
         st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:6px;'>パスワードを直接入力せず、暗号トークンで安全に開くための専用URLです。認証後はアドレスバーから自動で消去されるため、履歴にも残りません。</p>", unsafe_allow_html=True)
 
-        copy_template = """
-        <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:12px; margin-bottom:8px;">
-            <div style="font-size:0.75rem; font-weight:600; color:#334155; margin-bottom:6px;">
-                💡 現在開いているブラウザのアドレスから自動生成された共有URL:
-            </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <input type="text" id="live_token_url_input" readonly 
-                    style="flex:1; padding:7px 10px; font-size:0.8rem; border:1px solid #94A3B8; border-radius:6px; background:#FFFFFF; color:#0F172A; font-family:monospace;" 
-                    value="__DYNAMIC_URL__" />
-                <button type="button" id="copy_live_btn" 
-                    onclick="(function(btn){
-                        var inp = document.getElementById('live_token_url_input');
-                        if (!inp) return;
-                        inp.select();
-                        inp.setSelectionRange(0, 99999);
-                        var copyVal = inp.value;
-                        function showSuccess() {
-                            btn.innerText = '✅ コピー完了!';
-                            btn.style.backgroundColor = '#10B981';
-                            var alertBox = document.getElementById('copy_success_alert');
-                            if (alertBox) alertBox.style.display = 'block';
-                            setTimeout(function(){
-                                btn.innerText = '📋 コピー';
-                                btn.style.backgroundColor = '#006699';
-                            }, 3500);
-                        }
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(copyVal).then(showSuccess).catch(function(){
-                                document.execCommand('copy');
-                                showSuccess();
-                            });
-                        } else {
-                            document.execCommand('copy');
-                            showSuccess();
-                        }
-                    })(this);"
-                    style="padding:7px 16px; font-size:0.8rem; font-weight:bold; color:white; background:#006699; border:none; border-radius:6px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-                    📋 コピー
-                </button>
-            </div>
-            <div id="copy_success_alert" style="display:none; margin-top:8px; font-size:0.75rem; font-weight:bold; color:#047857; background:#ECFDF5; border:1px solid #A7F3D0; padding:6px 10px; border-radius:6px;">
-                ✅ 正しいワンタップURLをクリップボードにコピーしました！ご家族のLINE等に貼り付けてそのまま共有できます。
-            </div>
-        </div>
-        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="
-            (function() {
-                try {
-                    var tokenVal = '__TOKEN__';
-                    var curOrigin = window.location.origin;
-                    var curPath = window.location.pathname;
-                    if (!curPath.endsWith('/')) { curPath += '/'; }
-                    var fullComputed = curOrigin + curPath + '?token=' + tokenVal;
-                    var inp = document.getElementById('live_token_url_input');
-                    if (inp && fullComputed.indexOf('http') === 0) {
-                        inp.value = fullComputed;
-                    }
-                } catch(e) {}
-            })();
-        " style="display:none;" />
-        """
         init_display_url = dynamic_url if dynamic_url.startswith("http") else f"?token={token}"
-        copy_ui_html = copy_template.replace("__DYNAMIC_URL__", init_display_url).replace("__TOKEN__", token)
-        st.markdown(copy_ui_html, unsafe_allow_html=True)
+
+        iframe_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <style>
+            * {{ box-sizing: border-box; }}
+            body {{
+                margin: 0;
+                padding: 0;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: transparent;
+            }}
+            .wrap {{
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                background: #F8FAFC;
+                border: 1px solid #CBD5E1;
+                border-radius: 8px;
+                padding: 6px 10px;
+            }}
+            input {{
+                flex: 1;
+                border: none;
+                background: transparent;
+                font-family: monospace;
+                font-size: 0.82rem;
+                color: #0F172A;
+                outline: none;
+                width: 100%;
+            }}
+            button {{
+                padding: 7px 16px;
+                font-size: 0.8rem;
+                font-weight: 700;
+                color: white;
+                background: #006699;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: background 0.2s;
+            }}
+            button:hover {{ background: #004B73; }}
+            .toast {{
+                display: none;
+                font-size: 0.74rem;
+                font-weight: 700;
+                color: #059669;
+                margin-top: 5px;
+            }}
+        </style>
+        </head>
+        <body>
+        <div class="wrap">
+            <input type="text" id="targetUrl" readonly value="{init_display_url}" />
+            <button id="copyBtn" onclick="execCopy()">📋 コピー</button>
+        </div>
+        <div id="toastMsg" class="toast">✅ クリップボードにコピーしました！ご家族のLINE等に貼り付けてください。</div>
+        <script>
+        function execCopy() {{
+            var inp = document.getElementById('targetUrl');
+            var btn = document.getElementById('copyBtn');
+            var toast = document.getElementById('toastMsg');
+            inp.select();
+            inp.setSelectionRange(0, 99999);
+            var text = inp.value;
+
+            function success() {{
+                btn.innerText = '✅ コピー完了!';
+                btn.style.background = '#10B981';
+                toast.style.display = 'block';
+                setTimeout(function() {{
+                    btn.innerText = '📋 コピー';
+                    btn.style.background = '#006699';
+                    toast.style.display = 'none';
+                }}, 4000);
+            }}
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {{
+                navigator.clipboard.writeText(text).then(success).catch(function() {{
+                    document.execCommand('copy');
+                    success();
+                }});
+            }} else {{
+                document.execCommand('copy');
+                success();
+            }}
+        }}
+        </script>
+        </body>
+        </html>
+        """
+        st.markdown("<div style='font-size:0.75rem; font-weight:600; color:#334155; margin-bottom:4px;'>💡 現在開いているブラウザのアドレスから自動生成された共有URL:</div>", unsafe_allow_html=True)
+        components.html(iframe_html, height=72)
         st.code(init_display_url, language="text")
-        st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLがコピーされます。")
+        st.caption("※上の青い「📋 コピー」ボタン、または右上のコピーアイコンを押すと、ご家族に送るURLが確実にコピーされます。")
 
     st.markdown("---")
     # Streamlit Cloud Secrets（永続化）ガイド
@@ -1549,7 +1584,7 @@ with col_act2:
 
 st.markdown(f"""
 <div style="text-align:center; color:#94A3B8; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM Ver 2.9 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM Ver 3.0 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
     <span style="font-size:0.62rem; color:#CBD5E1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)
