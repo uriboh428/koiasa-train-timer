@@ -94,12 +94,24 @@ def get_public_holidays_of_year(year: int) -> Dict[datetime.date, str]:
 _HOLIDAYS_CACHE: Dict[int, Dict[datetime.date, str]] = {}
 
 
-def get_holiday_name(dt: datetime.date | datetime.datetime) -> Optional[str]:
-    """指定された日付が祝日の場合はその名称を、祝日でない場合はNoneを返す"""
+def get_service_date(dt: datetime.date | datetime.datetime) -> datetime.date:
+    """
+    鉄道運行日（サービスデー: 05:00〜翌04:59を一区切り）の基準日を取得。
+    午前00:00〜04:59の深夜便は前日のダイヤ（前夜からの継続運行）に帰属する。
+    """
     if isinstance(dt, datetime.datetime):
-        target_date = dt.date()
+        if dt.hour < 5:
+            return dt.date() - datetime.timedelta(days=1)
+        return dt.date()
+    return dt
+
+
+def get_holiday_name(dt: datetime.date | datetime.datetime, use_service_date: bool = True) -> Optional[str]:
+    """指定された日付が祝日の場合はその名称を、祝日でない場合はNoneを返す"""
+    if use_service_date:
+        target_date = get_service_date(dt)
     else:
-        target_date = dt
+        target_date = dt.date() if isinstance(dt, datetime.datetime) else dt
 
     year = target_date.year
     if year not in _HOLIDAYS_CACHE:
@@ -114,11 +126,12 @@ def is_holiday(dt: datetime.date | datetime.datetime) -> bool:
 
 
 def is_holiday_or_weekend(dt: datetime.date | datetime.datetime) -> bool:
-    """土曜日(5)、日曜日(6)、または国民の祝日であるか判定"""
-    weekday = dt.weekday()
+    """土曜日(5)、日曜日(6)、または国民の祝日であるか判定（鉄道運行日基準）"""
+    service_d = get_service_date(dt)
+    weekday = service_d.weekday()
     if weekday >= 5:  # 土曜日または日曜日
         return True
-    return is_holiday(dt)
+    return is_holiday(service_d)
 
 
 def get_timetable_type(dt: datetime.date | datetime.datetime) -> str:
@@ -131,12 +144,13 @@ def get_timetable_type(dt: datetime.date | datetime.datetime) -> str:
 
 def get_timetable_display_info(dt: datetime.date | datetime.datetime) -> Dict[str, Any]:
     """
-    画面表示用のダイヤ案内情報（ラベル、アイコン、説明文）を取得
+    画面表示用のダイヤ案内情報（ラベル、アイコン、説明文）を取得（鉄道運行日基準）
     """
+    service_d = get_service_date(dt)
     tt_type = get_timetable_type(dt)
     holiday_name = get_holiday_name(dt)
     weekday_names = ["月", "火", "水", "木", "金", "土", "日"]
-    weekday_str = weekday_names[dt.weekday()]
+    weekday_str = weekday_names[service_d.weekday()]
 
     if holiday_name:
         return {
@@ -148,8 +162,9 @@ def get_timetable_display_info(dt: datetime.date | datetime.datetime) -> Dict[st
             "color": "#DC2626",
             "bg_color": "#FEE2E2",
             "weekday_str": weekday_str,
+            "service_date": service_d.isoformat(),
         }
-    elif dt.weekday() == 5:  # 土曜日
+    elif service_d.weekday() == 5:  # 土曜日
         return {
             "type": "holiday",
             "badge_label": "土休日ダイヤ",
@@ -159,8 +174,9 @@ def get_timetable_display_info(dt: datetime.date | datetime.datetime) -> Dict[st
             "color": "#2563EB",
             "bg_color": "#DBEAFE",
             "weekday_str": "土",
+            "service_date": service_d.isoformat(),
         }
-    elif dt.weekday() == 6:  # 日曜日
+    elif service_d.weekday() == 6:  # 日曜日
         return {
             "type": "holiday",
             "badge_label": "土休日ダイヤ",
@@ -170,6 +186,7 @@ def get_timetable_display_info(dt: datetime.date | datetime.datetime) -> Dict[st
             "color": "#DC2626",
             "bg_color": "#FEE2E2",
             "weekday_str": "日",
+            "service_date": service_d.isoformat(),
         }
     else:
         return {
@@ -181,5 +198,6 @@ def get_timetable_display_info(dt: datetime.date | datetime.datetime) -> Dict[st
             "color": "#059669",
             "bg_color": "#D1FAE5",
             "weekday_str": weekday_str,
+            "service_date": service_d.isoformat(),
         }
 

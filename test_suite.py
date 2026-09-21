@@ -888,6 +888,26 @@ class TestJapanCalendar(unittest.TestCase):
         self.assertEqual(info_wd["badge_label"], "平日ダイヤ")
         self.assertIsNone(info_wd["holiday_name"])
 
+    def test_service_date_midnight_boundary(self):
+        """鉄道運行日（午前05:00切り替え境界）の検証：深夜0時〜4時台は前日ダイヤに帰属すること"""
+        from japan_calendar import get_service_date, get_timetable_type, get_holiday_name
+
+        # 1. 金曜深夜（2026-09-19 土曜 00:01）-> 運行日は金曜日（平日ダイヤ）
+        dt_fri_midnight = datetime.datetime(2026, 9, 19, 0, 1, 0)
+        self.assertEqual(get_service_date(dt_fri_midnight), datetime.date(2026, 9, 18))
+        self.assertEqual(get_timetable_type(dt_fri_midnight), "weekday")
+
+        # 2. 土曜朝（2026-09-19 土曜 05:01）-> 運行日は土曜日（土休日ダイヤ）
+        dt_sat_morning = datetime.datetime(2026, 9, 19, 5, 1, 0)
+        self.assertEqual(get_service_date(dt_sat_morning), datetime.date(2026, 9, 19))
+        self.assertEqual(get_timetable_type(dt_sat_morning), "holiday")
+
+        # 3. 敬老の日の深夜（2026-09-22 火曜 00:15）-> 運行日は敬老の日（土休日ダイヤ）
+        dt_respect_midnight = datetime.datetime(2026, 9, 22, 0, 15, 0)
+        self.assertEqual(get_service_date(dt_respect_midnight), datetime.date(2026, 9, 21))
+        self.assertEqual(get_timetable_type(dt_respect_midnight), "holiday")
+        self.assertEqual(get_holiday_name(dt_respect_midnight), "敬老の日")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -668,15 +668,50 @@ if "pace" not in st.session_state:
     st.session_state["pace"] = "normal"
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = 0
+if "timetable_mode" not in st.session_state:
+    st.session_state["timetable_mode"] = "auto"
 
 # ----------------------------------------------------
 # 1. 【最上部】行き先設定（堅牢なステートレス・ボタングループ）
 # ----------------------------------------------------
 is_k2a = (st.session_state["direction"] == "koigakubo_to_asakadai")
 
-# 本日のダイヤ種別（平日/土休日/祝日）の自動判定
-timetable_info = get_timetable_display_info(now_jst)
-is_holiday = (timetable_info["type"] == "holiday")
+# 本日のダイヤ種別（平日/土休日/祝日）の自動判定 & プレビュー適応
+auto_tt_info = get_timetable_display_info(now_jst)
+tt_mode = st.session_state.get("timetable_mode", "auto")
+
+if tt_mode == "weekday":
+    active_timetable_type = "weekday"
+    is_manual = True
+    active_label = "平日ダイヤ（手動プレビュー中）"
+    active_holiday_name = None
+    active_bg = "rgba(16, 185, 129, 0.08)"
+    active_border = "#A7F3D0"
+    active_text_color = "#065F46"
+    active_icon = "💼"
+    active_notice = "※平日の運行ダイヤを手動表示中"
+elif tt_mode == "holiday":
+    active_timetable_type = "holiday"
+    is_manual = True
+    active_label = "土休日ダイヤ（手動プレビュー中）"
+    active_holiday_name = None
+    active_bg = "rgba(234, 88, 12, 0.08)"
+    active_border = "#FDBA74"
+    active_text_color = "#C2410C"
+    active_icon = "📅"
+    active_notice = "※土休日の運行ダイヤを手動表示中"
+else:
+    # 365日24時間 完全自動判定モード（デフォルト）
+    active_timetable_type = auto_tt_info["type"]
+    is_manual = False
+    is_holiday = (auto_tt_info["type"] == "holiday")
+    active_label = auto_tt_info["badge_label"]
+    active_holiday_name = auto_tt_info.get("holiday_name")
+    active_bg = "rgba(234, 88, 12, 0.08)" if is_holiday else "rgba(16, 185, 129, 0.08)"
+    active_border = "#FDBA74" if is_holiday else "#A7F3D0"
+    active_text_color = "#C2410C" if is_holiday else "#065F46"
+    active_icon = "📅" if is_holiday else "💼"
+    active_notice = "⚠️ 土休日ダイヤ運行中（終電時刻にご注意ください）" if is_holiday else ""
 
 current_time_str = now_jst.strftime("%H:%M:%S")
 st.markdown(f"""
@@ -729,28 +764,32 @@ with col_rv:
         st.session_state["selected_index"] = 0
         st.rerun()
 
-# ダイヤ種別ステータスバナー（平日 / 土休日 / 祝日・振替休日を自動明示）
-tt_badge_bg = "rgba(234, 88, 12, 0.08)" if is_holiday else "rgba(16, 185, 129, 0.08)"
-tt_badge_border = "#FDBA74" if is_holiday else "#A7F3D0"
-tt_badge_text_color = "#C2410C" if is_holiday else "#065F46"
-tt_icon = "📅" if is_holiday else "💼"
-tt_holiday_extra = f" <span style='font-size:0.75rem; font-weight:700; background:#FEF3C7; color:#92400E; padding:1px 6px; border-radius:4px; margin-left:4px;'>祝日: {escape_text(timetable_info['holiday_name'])}</span>" if timetable_info.get("holiday_name") else ""
-tt_notice = " <span style='font-size:0.72rem; color:#EA580C; font-weight:600; margin-left:auto;'>⚠️ 土休日ダイヤ運行中（終電時刻にご注意ください）</span>" if is_holiday else ""
+# ダイヤ種別ステータスバナー（祝日・土日・平日の完全自動判定表示）
+tt_holiday_extra = f" <span style='font-size:0.75rem; font-weight:700; background:#FEF3C7; color:#92400E; padding:1px 6px; border-radius:4px; margin-left:4px;'>祝日: {escape_text(active_holiday_name)}</span>" if active_holiday_name else ""
+tt_notice_html = f" <span style='font-size:0.72rem; color:{active_text_color}; font-weight:600; margin-left:auto;'>{active_notice}</span>" if active_notice else ""
 
 st.markdown(f"""
-<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; background:{tt_badge_bg}; border:1px solid {tt_badge_border}; border-radius:10px; padding:6px 12px; margin: 8px 0 12px 0;">
-    <span style="font-size:0.82rem; font-weight:800; color:{tt_badge_text_color}; display:flex; align-items:center; gap:4px;">
-        <span>{tt_icon}</span>
-        <span>{timetable_info['badge_label']}</span>
+<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; background:{active_bg}; border:1px solid {active_border}; border-radius:10px; padding:6px 12px; margin: 8px 0 12px 0;">
+    <span style="font-size:0.82rem; font-weight:800; color:{active_text_color}; display:flex; align-items:center; gap:4px;">
+        <span>{active_icon}</span>
+        <span>{active_label}</span>
     </span>
     {tt_holiday_extra}
-    {tt_notice}
+    {tt_notice_html}
 </div>
 """, unsafe_allow_html=True)
 
-# ダイヤ改正検知ステータス & 終電情報（確定した direction に基づく）
+if is_manual:
+    col_rst1, col_rst2 = st.columns([7, 3])
+    with col_rst2:
+        if st.button("↩️ 自動判定に戻す", key="btn_reset_tt_mode", use_container_width=True):
+            st.session_state["timetable_mode"] = "auto"
+            st.session_state["selected_index"] = 0
+            st.rerun()
+
+# ダイヤ改正検知ステータス & 終電情報（確定した direction & ダイヤ種別に基づく）
 revision_info = get_revision_status()
-last_train = get_last_train_info(st.session_state["direction"], now=now_jst)
+last_train = get_last_train_info(st.session_state["direction"], now=now_jst, timetable_type=active_timetable_type)
 
 # ----------------------------------------------------
 # 2. リアルタイム経路計算 & クライアント自律型秒針エンジン
@@ -759,7 +798,8 @@ routes = get_routes(
     direction=st.session_state["direction"],
     offset_minutes=st.session_state["offset_minutes"],
     pace=st.session_state["pace"],
-    now=now_jst
+    now=now_jst,
+    timetable_type=active_timetable_type
 )
 
 if not routes:
@@ -992,7 +1032,7 @@ if len(routes) > 1:
                 st.rerun()
 
 # 出発オフセット ＆ 乗換ペース（折りたたみ・設定）
-with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False):
+with st.expander("⚙️ 出発タイミング ＆ 乗換・ダイヤ設定", expanded=False):
     c_off, c_pace = st.columns(2)
     with c_off:
         selected_offset = st.select_slider(
@@ -1020,6 +1060,29 @@ with st.expander("⚙️ 出発タイミング ＆ 乗換設定", expanded=False
             st.session_state["pace"] = selected_pace
             st.session_state["selected_index"] = 0
             st.rerun()
+
+    # 運行ダイヤ自動判定 ＆ 任意プレビュー切り替え
+    h_name = auto_tt_info.get("holiday_name")
+    h_extra = f" - {h_name}" if h_name else ""
+    auto_desc = f"🤖 完全自動判定（現在: {auto_tt_info['badge_label']}{h_extra}）"
+    tt_labels = {
+        "auto": auto_desc,
+        "weekday": "💼 平日ダイヤをプレビュー確認",
+        "holiday": "📅 土休日ダイヤをプレビュー確認",
+    }
+    cur_tt_idx = 0 if tt_mode == "auto" else 1 if tt_mode == "weekday" else 2
+    selected_tt_mode = st.selectbox(
+        "運行ダイヤの適用モード",
+        options=["auto", "weekday", "holiday"],
+        format_func=lambda x: tt_labels.get(x, x),
+        index=cur_tt_idx,
+        key="select_timetable_mode_val",
+        help="【通常は『完全自動判定』のままでOK】365日24時間、祝日・土日・平日を全自動判定します。休日に平日のダイヤを事前確認したい場合などに切り替えてください。"
+    )
+    if selected_tt_mode != st.session_state["timetable_mode"]:
+        st.session_state["timetable_mode"] = selected_tt_mode
+        st.session_state["selected_index"] = 0
+        st.rerun()
 
 
 # 終電詳細カード（折りたたみ）
