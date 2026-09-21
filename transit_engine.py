@@ -3,6 +3,18 @@ import html
 import urllib.parse
 from typing import List, Dict, Any, Optional
 
+from japan_calendar import get_timetable_type, is_holiday_or_weekend
+from timetable_data import (
+    KOIGAKUBO_DEPARTURES,
+    KOKUBUNJI_CHUO_DOWN,
+    NISHI_KOKUBUNJI_MUSASHINO_UP,
+    KITA_ASAKADAI_MUSASHINO_DOWN,
+    NISHI_KOKUBUNJI_CHUO_UP,
+    KOKUBUNJI_SEIBU_DOWN,
+    TIMETABLES,
+    get_timetable_set,
+)
+
 JST = datetime.timezone(datetime.timedelta(hours=9))
 
 def get_timestamp_ms(dt: datetime.datetime) -> int:
@@ -23,14 +35,6 @@ def is_safe_url(url: str) -> bool:
         return False
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme in ("http", "https")
-from timetable_data import (
-    KOIGAKUBO_DEPARTURES,
-    KOKUBUNJI_CHUO_DOWN,
-    NISHI_KOKUBUNJI_MUSASHINO_UP,
-    KITA_ASAKADAI_MUSASHINO_DOWN,
-    NISHI_KOKUBUNJI_CHUO_UP,
-    KOKUBUNJI_SEIBU_DOWN,
-)
 
 def get_default_direction(now: Optional[datetime.datetime] = None) -> str:
     """
@@ -89,20 +93,26 @@ def get_transfer_buffer(station: str, pace: str = "normal") -> int:
         return 3 if pace == "fast" else 6 if pace == "relaxed" else 4
 
 def calculate_koigakubo_to_asakadai(
-    dept_time: datetime.datetime, pace: str, now: datetime.datetime
+    dept_time: datetime.datetime, pace: str, now: datetime.datetime, timetable_type: Optional[str] = None
 ) -> Dict[str, Any]:
-    """往路：恋ヶ窪 ➡ 朝霞台 の計算"""
+    """往路：恋ヶ窪 ➡ 朝霞台 の計算（平日/土休日自動適応）"""
+    if timetable_type is None:
+        timetable_type = get_timetable_type(dept_time)
+    tt_set = get_timetable_set(timetable_type)
+
     leg1_dept = dept_time
     leg1_arrv = leg1_dept + datetime.timedelta(minutes=3)
 
     buf_k = get_transfer_buffer("kokubunji", pace)
     earliest_chuo = leg1_arrv + datetime.timedelta(minutes=buf_k)
-    leg2_dept = find_next_departure(KOKUBUNJI_CHUO_DOWN, earliest_chuo) or earliest_chuo
+    chuo_schedule = tt_set["kokubunji_chuo_down"]
+    leg2_dept = find_next_departure(chuo_schedule, earliest_chuo) or earliest_chuo
     leg2_arrv = leg2_dept + datetime.timedelta(minutes=2)
 
     buf_n = get_transfer_buffer("nishi_kokubunji", pace)
     earliest_m = leg2_arrv + datetime.timedelta(minutes=buf_n)
-    leg3_dept = find_next_departure(NISHI_KOKUBUNJI_MUSASHINO_UP, earliest_m) or earliest_m
+    musashino_schedule = tt_set["nishi_kokubunji_musashino_up"]
+    leg3_dept = find_next_departure(musashino_schedule, earliest_m) or earliest_m
     leg3_arrv = leg3_dept + datetime.timedelta(minutes=22)
 
     final_arrv = leg3_arrv + datetime.timedelta(minutes=1)  # 北朝霞〜朝霞台 徒歩1分
@@ -155,6 +165,7 @@ def calculate_koigakubo_to_asakadai(
 
     return {
         "direction": "koigakubo_to_asakadai",
+        "timetable_type": timetable_type,
         "departure_time": leg1_dept.strftime("%H:%M"),
         "arrival_time": final_arrv.strftime("%H:%M"),
         "total_minutes": total_min,
@@ -164,20 +175,26 @@ def calculate_koigakubo_to_asakadai(
     }
 
 def calculate_asakadai_to_koigakubo(
-    dept_time: datetime.datetime, pace: str, now: datetime.datetime
+    dept_time: datetime.datetime, pace: str, now: datetime.datetime, timetable_type: Optional[str] = None
 ) -> Dict[str, Any]:
-    """復路：朝霞台 ➡ 恋ヶ窪 の計算"""
+    """復路：朝霞台 ➡ 恋ヶ窪 の計算（平日/土休日自動適応）"""
+    if timetable_type is None:
+        timetable_type = get_timetable_type(dept_time)
+    tt_set = get_timetable_set(timetable_type)
+
     leg1_dept = dept_time
     leg1_arrv = leg1_dept + datetime.timedelta(minutes=22)
 
     buf_n = get_transfer_buffer("nishi_kokubunji", pace)
     earliest_c = leg1_arrv + datetime.timedelta(minutes=buf_n)
-    leg2_dept = find_next_departure(NISHI_KOKUBUNJI_CHUO_UP, earliest_c) or earliest_c
+    chuo_schedule = tt_set["nishi_kokubunji_chuo_up"]
+    leg2_dept = find_next_departure(chuo_schedule, earliest_c) or earliest_c
     leg2_arrv = leg2_dept + datetime.timedelta(minutes=2)
 
     buf_k = get_transfer_buffer("kokubunji", pace)
     earliest_s = leg2_arrv + datetime.timedelta(minutes=buf_k)
-    leg3_dept = find_next_departure(KOKUBUNJI_SEIBU_DOWN, earliest_s) or earliest_s
+    seibu_schedule = tt_set["kokubunji_seibu_down"]
+    leg3_dept = find_next_departure(seibu_schedule, earliest_s) or earliest_s
     leg3_arrv = leg3_dept + datetime.timedelta(minutes=3)
 
     total_min = round((leg3_arrv - leg1_dept).total_seconds() / 60)
@@ -229,6 +246,7 @@ def calculate_asakadai_to_koigakubo(
 
     return {
         "direction": "asakadai_to_koigakubo",
+        "timetable_type": timetable_type,
         "departure_time": leg1_dept.strftime("%H:%M"),
         "arrival_time": leg3_arrv.strftime("%H:%M"),
         "total_minutes": total_min,
@@ -238,92 +256,160 @@ def calculate_asakadai_to_koigakubo(
     }
 
 def get_routes(
-    direction: str, offset_minutes: int = 0, pace: str = "normal", now: Optional[datetime.datetime] = None
+    direction: str,
+    offset_minutes: int = 0,
+    pace: str = "normal",
+    now: Optional[datetime.datetime] = None,
+    timetable_type: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """指定方向の直近便リストを取得"""
+    """指定方向の直近便リストを取得（平日/土休日自動適応）"""
     if now is None:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(JST)
     search_time = now + datetime.timedelta(minutes=offset_minutes)
 
+    if timetable_type is None:
+        timetable_type = get_timetable_type(search_time)
+
+    tt_set = get_timetable_set(timetable_type)
+
     if direction == "koigakubo_to_asakadai":
-        depts = find_next_departures_list(KOIGAKUBO_DEPARTURES, search_time, 3)
-        return [calculate_koigakubo_to_asakadai(d, pace, now) for d in depts]
+        schedule = tt_set["koigakubo"]
+        depts = find_next_departures_list(schedule, search_time, 3)
+        return [calculate_koigakubo_to_asakadai(d, pace, now, timetable_type) for d in depts]
     else:
-        depts = find_next_departures_list(KITA_ASAKADAI_MUSASHINO_DOWN, search_time, 3)
-        return [calculate_asakadai_to_koigakubo(d, pace, now) for d in depts]
+        schedule = tt_set["kita_asakadai_musashino_down"]
+        depts = find_next_departures_list(schedule, search_time, 3)
+        return [calculate_asakadai_to_koigakubo(d, pace, now, timetable_type) for d in depts]
 
 def get_last_train_info(
-    direction: str, now: Optional[datetime.datetime] = None
+    direction: str, now: Optional[datetime.datetime] = None, timetable_type: Optional[str] = None
 ) -> Dict[str, Any]:
-    """本日の終電案内およびカウントダウン情報を取得"""
+    """本日の終電案内およびカウントダウン情報を取得（平日/土休日ダイヤ自動対応）"""
     if now is None:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(JST)
+
+    if timetable_type is None:
+        # 深夜0時〜4時台は「前日夜の終電の延長」として評価するため前日のダイヤタイプを基準とする
+        calc_date = (now - datetime.timedelta(days=1)) if now.hour < 5 else now
+        timetable_type = get_timetable_type(calc_date)
+
+    base_date = now.date()
 
     if direction == "koigakubo_to_asakadai":
-        # 恋ヶ窪発 朝霞台行 最終接続便: 恋ヶ窪 00:03 発 ➡ 朝霞台 00:45 着
-        # 0:03 発は日付としては「翌日未明」
-        # 当日 05:00 〜 23:59 の場合、終電は翌日 00:03
-        # 当日 00:00 〜 00:03 の場合、終電は当日 00:03
-        # 当日 00:04 〜 04:59 の場合、当日の終電は運行終了
-        base_date = now.date()
-        if now.hour < 5:
-            # 0時〜4時台
-            last_dept_dt = now.replace(hour=0, minute=3, second=0, microsecond=0)
-            if now > last_dept_dt:
+        if timetable_type == "holiday":
+            # 土休日ダイヤ: 恋ヶ窪 23:40 発 ➡ 朝霞台 00:26 着
+            # 5:00〜23:40: 当日 23:40 発
+            # 23:41〜翌4:59: 運行終了
+            if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
+                last_dept_dt = now.replace(hour=23, minute=40, second=0, microsecond=0)
+                if now > last_dept_dt:
+                    is_expired = True
+                    seconds_left = 0
+                else:
+                    is_expired = False
+                    seconds_left = int((last_dept_dt - now).total_seconds())
+
+            return {
+                "direction": "koigakubo_to_asakadai",
+                "timetable_type": "holiday",
+                "departure_station": "恋ヶ窪",
+                "destination_station": "朝霞台",
+                "departure_time": "23:40",
+                "arrival_time": "00:26",
+                "total_minutes": 46,
+                "seconds_until_last_train": seconds_left,
+                "is_expired": is_expired,
+                "route_summary": "恋ヶ窪 23:40 (西武) ➡ 国分寺 23:47 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 朝霞台 00:26",
+                "first_train_time": "05:13",
+            }
+        else:
+            # 平日ダイヤ: 恋ヶ窪 00:03 発 ➡ 朝霞台 00:45 着
+            if now.hour < 5:
+                last_dept_dt = now.replace(hour=0, minute=3, second=0, microsecond=0)
+                if now > last_dept_dt:
+                    is_expired = True
+                    seconds_left = 0
+                else:
+                    is_expired = False
+                    seconds_left = int((last_dept_dt - now).total_seconds())
+            else:
+                tomorrow = base_date + datetime.timedelta(days=1)
+                last_dept_dt = datetime.datetime.combine(tomorrow, datetime.time(0, 3))
+                if now.tzinfo:
+                    last_dept_dt = last_dept_dt.replace(tzinfo=now.tzinfo)
                 is_expired = False
                 seconds_left = int((last_dept_dt - now).total_seconds())
-        else:
-            # 5時〜23時台
-            tomorrow = base_date + datetime.timedelta(days=1)
-            last_dept_dt = datetime.datetime.combine(tomorrow, datetime.time(0, 3))
-            if now.tzinfo:
-                last_dept_dt = last_dept_dt.replace(tzinfo=now.tzinfo)
-            is_expired = False
-            seconds_left = int((last_dept_dt - now).total_seconds())
 
-        return {
-            "direction": "koigakubo_to_asakadai",
-            "departure_station": "恋ヶ窪",
-            "destination_station": "朝霞台",
-            "departure_time": "00:03",
-            "arrival_time": "00:45",
-            "total_minutes": 42,
-            "seconds_until_last_train": seconds_left,
-            "is_expired": is_expired,
-            "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 朝霞台 00:45",
-            "first_train_time": "05:12",
-        }
+            return {
+                "direction": "koigakubo_to_asakadai",
+                "timetable_type": "weekday",
+                "departure_station": "恋ヶ窪",
+                "destination_station": "朝霞台",
+                "departure_time": "00:03",
+                "arrival_time": "00:45",
+                "total_minutes": 42,
+                "seconds_until_last_train": seconds_left,
+                "is_expired": is_expired,
+                "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 朝霞台 00:45",
+                "first_train_time": "05:12",
+            }
+
     else:
-        # 朝霞台発 恋ヶ窪行 最終接続便: 北朝霞(朝霞台) 23:45 発 ➡ 恋ヶ窪 00:34 着
-        # 当日 05:00 〜 23:45 の場合、終電は当日 23:45
-        # 当日 23:46 〜 翌 04:59 の場合、運行終了
-        base_date = now.date()
-        if now.hour < 5:
-            # 0時〜4時台（昨晩の終電は終了済み）
-            is_expired = True
-            seconds_left = 0
-        else:
-            last_dept_dt = now.replace(hour=23, minute=45, second=0, microsecond=0)
-            if now > last_dept_dt:
+        # 朝霞台発 恋ヶ窪行
+        if timetable_type == "holiday":
+            # 土休日ダイヤ: 朝霞台 23:33 発 ➡ 恋ヶ窪 00:13 着
+            if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                is_expired = False
-                seconds_left = int((last_dept_dt - now).total_seconds())
+                last_dept_dt = now.replace(hour=23, minute=33, second=0, microsecond=0)
+                if now > last_dept_dt:
+                    is_expired = True
+                    seconds_left = 0
+                else:
+                    is_expired = False
+                    seconds_left = int((last_dept_dt - now).total_seconds())
 
-        return {
-            "direction": "asakadai_to_koigakubo",
-            "departure_station": "朝霞台",
-            "destination_station": "恋ヶ窪",
-            "departure_time": "23:45",
-            "arrival_time": "00:34",
-            "total_minutes": 49,
-            "seconds_until_last_train": seconds_left,
-            "is_expired": is_expired,
-            "route_summary": "朝霞台 23:45 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
-            "first_train_time": "05:14",
-        }
+            return {
+                "direction": "asakadai_to_koigakubo",
+                "timetable_type": "holiday",
+                "departure_station": "朝霞台",
+                "destination_station": "恋ヶ窪",
+                "departure_time": "23:33",
+                "arrival_time": "00:13",
+                "total_minutes": 40,
+                "seconds_until_last_train": seconds_left,
+                "is_expired": is_expired,
+                "route_summary": "朝霞台 23:33 (武蔵野) ➡ 西国分寺 23:58 (中央) ➡ 国分寺 00:10 (西武) ➡ 恋ヶ窪 00:13",
+                "first_train_time": "05:19",
+            }
+        else:
+            # 平日ダイヤ: 朝霞台 23:45 発 ➡ 恋ヶ窪 00:34 着
+            if now.hour < 5:
+                is_expired = True
+                seconds_left = 0
+            else:
+                last_dept_dt = now.replace(hour=23, minute=45, second=0, microsecond=0)
+                if now > last_dept_dt:
+                    is_expired = True
+                    seconds_left = 0
+                else:
+                    is_expired = False
+                    seconds_left = int((last_dept_dt - now).total_seconds())
 
+            return {
+                "direction": "asakadai_to_koigakubo",
+                "timetable_type": "weekday",
+                "departure_station": "朝霞台",
+                "destination_station": "恋ヶ窪",
+                "departure_time": "23:45",
+                "arrival_time": "00:34",
+                "total_minutes": 49,
+                "seconds_until_last_train": seconds_left,
+                "is_expired": is_expired,
+                "route_summary": "朝霞台 23:45 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
+                "first_train_time": "05:14",
+            }

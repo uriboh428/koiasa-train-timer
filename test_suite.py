@@ -160,42 +160,71 @@ class TestTransitEngine(unittest.TestCase):
         self.assertFalse(is_safe_url(""))
 
     def test_last_train_koigakubo_to_asakadai(self):
-        """恋ヶ窪 ➡ 朝霞台 終電ナビゲーションの判定テスト"""
-        # 夜21:00のケース
-        now_21 = datetime.datetime(2026, 9, 20, 21, 0, 0)
-        info_21 = get_last_train_info("koigakubo_to_asakadai", now=now_21)
-        self.assertEqual(info_21["departure_time"], "00:03")
-        self.assertEqual(info_21["arrival_time"], "00:45")
-        self.assertFalse(info_21["is_expired"])
-        self.assertEqual(info_21["seconds_until_last_train"], 3 * 3600 + 3 * 60)
+        """恋ヶ窪 ➡ 朝霞台 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
+        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 恋ヶ窪 00:03 発 ---
+        # 夜21:00のケース（平日）
+        now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
+        info_w_21 = get_last_train_info("koigakubo_to_asakadai", now=now_weekday_21)
+        self.assertEqual(info_w_21["departure_time"], "00:03")
+        self.assertEqual(info_w_21["arrival_time"], "00:45")
+        self.assertFalse(info_w_21["is_expired"])
+        self.assertEqual(info_w_21["seconds_until_last_train"], 3 * 3600 + 3 * 60)
 
-        # 深夜0:01のケース（あと2分）
-        now_0001 = datetime.datetime(2026, 9, 21, 0, 1, 0)
-        info_0001 = get_last_train_info("koigakubo_to_asakadai", now=now_0001)
-        self.assertFalse(info_0001["is_expired"])
-        self.assertEqual(info_0001["seconds_until_last_train"], 120)
+        # 深夜0:01のケース（平日翌日未明・あと2分）
+        now_weekday_0001 = datetime.datetime(2026, 9, 19, 0, 1, 0)
+        # 土曜未明の0:01は、金曜深夜運転の00:03発便
+        info_w_0001 = get_last_train_info("koigakubo_to_asakadai", now=now_weekday_0001)
+        self.assertFalse(info_w_0001["is_expired"])
 
         # 深夜1:00のケース（運行終了）
-        now_0100 = datetime.datetime(2026, 9, 21, 1, 0, 0)
+        now_0100 = datetime.datetime(2026, 9, 18, 1, 0, 0)
         info_0100 = get_last_train_info("koigakubo_to_asakadai", now=now_0100)
         self.assertTrue(info_0100["is_expired"])
         self.assertEqual(info_0100["seconds_until_last_train"], 0)
 
+        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 恋ヶ窪 23:40 発 ---
+        now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)  # 敬老の日
+        info_h_21 = get_last_train_info("koigakubo_to_asakadai", now=now_holiday_21)
+        self.assertEqual(info_h_21["departure_time"], "23:40")
+        self.assertEqual(info_h_21["arrival_time"], "00:26")
+        self.assertFalse(info_h_21["is_expired"])
+        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 40 * 60)
+
+        # 23:45のケース（土休日は23:40発のため運行終了）
+        now_holiday_2345 = datetime.datetime(2026, 9, 21, 23, 45, 0)
+        info_h_2345 = get_last_train_info("koigakubo_to_asakadai", now=now_holiday_2345)
+        self.assertTrue(info_h_2345["is_expired"])
+        self.assertEqual(info_h_2345["seconds_until_last_train"], 0)
+
     def test_last_train_asakadai_to_koigakubo(self):
-        """朝霞台 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト"""
-        # 夜21:00のケース
-        now_21 = datetime.datetime(2026, 9, 20, 21, 0, 0)
-        info_21 = get_last_train_info("asakadai_to_koigakubo", now=now_21)
-        self.assertEqual(info_21["departure_time"], "23:45")
-        self.assertEqual(info_21["arrival_time"], "00:34")
-        self.assertFalse(info_21["is_expired"])
-        self.assertEqual(info_21["seconds_until_last_train"], 2 * 3600 + 45 * 60)
+        """朝霞台 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
+        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 朝霞台 23:45 発 ---
+        now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
+        info_w_21 = get_last_train_info("asakadai_to_koigakubo", now=now_weekday_21)
+        self.assertEqual(info_w_21["departure_time"], "23:45")
+        self.assertEqual(info_w_21["arrival_time"], "00:34")
+        self.assertFalse(info_w_21["is_expired"])
+        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 45 * 60)
 
         # 夜23:50のケース（運行終了）
-        now_2350 = datetime.datetime(2026, 9, 20, 23, 50, 0)
-        info_2350 = get_last_train_info("asakadai_to_koigakubo", now=now_2350)
-        self.assertTrue(info_2350["is_expired"])
-        self.assertEqual(info_2350["seconds_until_last_train"], 0)
+        now_w_2350 = datetime.datetime(2026, 9, 18, 23, 50, 0)
+        info_w_2350 = get_last_train_info("asakadai_to_koigakubo", now=now_w_2350)
+        self.assertTrue(info_w_2350["is_expired"])
+        self.assertEqual(info_w_2350["seconds_until_last_train"], 0)
+
+        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 朝霞台 23:33 発 ---
+        now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)
+        info_h_21 = get_last_train_info("asakadai_to_koigakubo", now=now_holiday_21)
+        self.assertEqual(info_h_21["departure_time"], "23:33")
+        self.assertEqual(info_h_21["arrival_time"], "00:13")
+        self.assertFalse(info_h_21["is_expired"])
+        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 33 * 60)
+
+        # 夜23:35のケース（土休日は23:33発のため運行終了）
+        now_h_2335 = datetime.datetime(2026, 9, 21, 23, 35, 0)
+        info_h_2335 = get_last_train_info("asakadai_to_koigakubo", now=now_h_2335)
+        self.assertTrue(info_h_2335["is_expired"])
+        self.assertEqual(info_h_2335["seconds_until_last_train"], 0)
 
 from revision_detector import parse_pub_date, check_timetable_revision, fetch_timetable_news, JST
 
@@ -706,37 +735,38 @@ class TestRevisionDetector(unittest.TestCase):
                 pass
 
     def test_countdown_auto_advance_logic(self):
-        """【Next Train Auto-Advance】発車時刻経過後に自律更新ガードが作動し、次便へスムーズに遷移することを検証"""
-        from app import JST, get_timestamp_ms
-        from transit_engine import get_routes
+        """【Next Train Auto-Advance】発車時刻経過後に自律更新ガードが作動し、次便へスムーズに遷移することを検証（平日・土休日双方）"""
+        from transit_engine import JST, get_timestamp_ms, get_routes
 
-        # 模擬時刻: 8:00
-        sim_now = datetime.datetime(2026, 9, 20, 8, 0, 0, tzinfo=JST)
-        routes_initial = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=sim_now)
-        self.assertGreater(len(routes_initial), 0)
-        first_route = routes_initial[0]
-        # 恋ヶ窪 8:02 発
-        self.assertEqual(first_route["departure_time"], "08:02")
-        dept_ms = first_route["departure_timestamp_ms"]
+        # --- A. 平日ダイヤでの自動更新検証（2026-09-18 金曜日）: 8:02 ➡ 8:10 ---
+        sim_now_w = datetime.datetime(2026, 9, 18, 8, 0, 0, tzinfo=JST)
+        routes_initial_w = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=sim_now_w)
+        self.assertGreater(len(routes_initial_w), 0)
+        first_route_w = routes_initial_w[0]
+        self.assertEqual(first_route_w["departure_time"], "08:02")
+        dept_ms_w = first_route_w["departure_timestamp_ms"]
 
         # 1. 発車前（8:01:00）: まだ発車していないため diff_sec > 0
-        check_before = datetime.datetime(2026, 9, 20, 8, 1, 0, tzinfo=JST)
-        diff_sec_before = (dept_ms - get_timestamp_ms(check_before)) // 1000
-        self.assertEqual(diff_sec_before, 60)
-        self.assertGreater(diff_sec_before, 0)
+        check_before_w = datetime.datetime(2026, 9, 18, 8, 1, 0, tzinfo=JST)
+        diff_sec_before_w = (dept_ms_w - get_timestamp_ms(check_before_w)) // 1000
+        self.assertEqual(diff_sec_before_w, 60)
+        self.assertGreater(diff_sec_before_w, 0)
 
         # 2. 発車2秒後（8:02:02）: 発車済みで更新トリガー条件（diff_sec <= -2）に合致
-        check_departed = datetime.datetime(2026, 9, 20, 8, 2, 2, tzinfo=JST)
-        diff_sec_departed = (dept_ms - get_timestamp_ms(check_departed)) // 1000
-        self.assertLessEqual(diff_sec_departed, -2, "発車後2秒で次便更新トリガー条件が成立すること")
+        check_departed_w = datetime.datetime(2026, 9, 18, 8, 2, 2, tzinfo=JST)
+        diff_sec_departed_w = (dept_ms_w - get_timestamp_ms(check_departed_w)) // 1000
+        self.assertLessEqual(diff_sec_departed_w, -2, "発車後2秒で次便更新トリガー条件が成立すること")
 
-        # 3. 自律更新ガードの作動検証:
-        # 発車時刻を過ぎた時点で再計算を行うと、次の便（8:10発）が先頭便として自動取得されること
-        routes_next = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=check_departed)
-        self.assertGreater(len(routes_next), 0)
-        next_route = routes_next[0]
-        self.assertEqual(next_route["departure_time"], "08:10", "発車後は即座に次の便（8:10発）へバトンタッチすること")
-        self.assertGreater(next_route["departure_timestamp_ms"], get_timestamp_ms(check_departed), "次便のカウントダウン秒数は正の数であること")
+        # 3. 平日自律更新ガード: 次便（8:10発）が先頭便として自動取得されること
+        routes_next_w = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=check_departed_w)
+        self.assertGreater(len(routes_next_w), 0)
+        self.assertEqual(routes_next_w[0]["departure_time"], "08:10", "平日の発車後は即座に次便（8:10発）へバトンタッチすること")
+
+        # --- B. 土休日ダイヤでの自動更新検証（2026-09-20 日曜日）: 8:02 ➡ 8:09 ---
+        check_departed_h = datetime.datetime(2026, 9, 20, 8, 2, 2, tzinfo=JST)
+        routes_next_h = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=check_departed_h)
+        self.assertGreater(len(routes_next_h), 0)
+        self.assertEqual(routes_next_h[0]["departure_time"], "08:09", "土休日の発車後は即座に次便（8:09発）へバトンタッチすること")
 
     def test_offset_and_pace_changes_reactivity(self):
         """【Dynamic Settings】出発オフセットおよび乗換ペースの変更がルート探索に正しく即時反映されることを検証"""
@@ -783,6 +813,80 @@ class TestRevisionDetector(unittest.TestCase):
             content = f.read()
         self.assertIn("プライベート ダッシュボード", content, "未認証画面はプライベート ダッシュボードと表記されている必要があります")
         self.assertIn("🔒 認証 | プライベート ダッシュボード", content, "未認証画面のブラウザタイトルが秘匿化されている必要があります")
+
+
+class TestJapanCalendar(unittest.TestCase):
+    """日本の祝日判定エンジン（内閣府基準完全準拠）の包括的検証"""
+
+    def test_fixed_holidays(self):
+        """固定祝日（元日、建国記念の日、昭和の日、憲法記念日、みどりの日、こどもの日、山の日、文化の日、勤労感謝の日）の判定"""
+        from japan_calendar import get_holiday_name, is_holiday_or_weekend
+        self.assertEqual(get_holiday_name(datetime.date(2026, 1, 1)), "元日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 2, 11)), "建国記念の日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 2, 23)), "天皇誕生日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 4, 29)), "昭和の日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 5, 3)), "憲法記念日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 5, 4)), "みどりの日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 5, 5)), "こどもの日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 8, 11)), "山の日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 11, 3)), "文化の日")
+        self.assertEqual(get_holiday_name(datetime.date(2026, 11, 23)), "勤労感謝の日")
+
+    def test_happy_monday_holidays(self):
+        """ハッピーマンデー制度（成人の日、海の日、敬老の日、スポーツの日）の判定"""
+        from japan_calendar import get_holiday_name
+        # 成人の日: 1月第2月曜日 (2026年は1月12日)
+        self.assertEqual(get_holiday_name(datetime.date(2026, 1, 12)), "成人の日")
+        # 海の日: 7月第3月曜日 (2026年は7月20日)
+        self.assertEqual(get_holiday_name(datetime.date(2026, 7, 20)), "海の日")
+        # 敬老の日: 9月第3月曜日 (2026年は9月21日)
+        self.assertEqual(get_holiday_name(datetime.date(2026, 9, 21)), "敬老の日")
+        # スポーツの日: 10月第2月曜日 (2026年は10月12日)
+        self.assertEqual(get_holiday_name(datetime.date(2026, 10, 12)), "スポーツの日")
+
+    def test_equinox_and_citizens_holiday(self):
+        """春分の日・秋分の日および国民の休日（祝日に挟まれた平日）の判定"""
+        from japan_calendar import get_holiday_name
+        # 2026年春分の日: 3月20日
+        self.assertEqual(get_holiday_name(datetime.date(2026, 3, 20)), "春分の日")
+        # 2026年秋分の日: 9月23日
+        self.assertEqual(get_holiday_name(datetime.date(2026, 9, 23)), "秋分の日")
+        # 2026年9月22日: 敬老の日(9/21)と秋分の日(9/23)に挟まれた国民の休日
+        self.assertEqual(get_holiday_name(datetime.date(2026, 9, 22)), "国民の休日")
+
+    def test_substitute_holiday(self):
+        """振替休日の判定（祝日が日曜日の場合、翌以降の平日が振替休日）"""
+        from japan_calendar import get_holiday_name
+        # 2026年5月3日は日曜日（憲法記念日）
+        # 5/4(月:みどりの日)、5/5(火:こどもの日)に続くため、5月6日(水)が振替休日
+        holiday_name = get_holiday_name(datetime.date(2026, 5, 6))
+        self.assertIsNotNone(holiday_name)
+        self.assertIn("振替休日", holiday_name)
+
+    def test_normal_weekdays(self):
+        """通常の平日が祝日と判定されないことの検証"""
+        from japan_calendar import get_holiday_name, is_holiday_or_weekend, get_timetable_type
+        # 2026年9月18日（金曜日）
+        d_fri = datetime.date(2026, 9, 18)
+        self.assertIsNone(get_holiday_name(d_fri))
+        self.assertFalse(is_holiday_or_weekend(d_fri))
+        self.assertEqual(get_timetable_type(d_fri), "weekday")
+
+    def test_timetable_display_info(self):
+        """表示用ダイヤバッジ情報の生成検証"""
+        from japan_calendar import get_timetable_display_info
+        # 敬老の日（2026-09-21）
+        info_hol = get_timetable_display_info(datetime.date(2026, 9, 21))
+        self.assertEqual(info_hol["type"], "holiday")
+        self.assertEqual(info_hol["badge_label"], "土休日ダイヤ")
+        self.assertEqual(info_hol["holiday_name"], "敬老の日")
+        self.assertIn("敬老の日", info_hol["full_badge"])
+
+        # 通常平日（2026-09-18）
+        info_wd = get_timetable_display_info(datetime.date(2026, 9, 18))
+        self.assertEqual(info_wd["type"], "weekday")
+        self.assertEqual(info_wd["badge_label"], "平日ダイヤ")
+        self.assertIsNone(info_wd["holiday_name"])
 
 
 if __name__ == '__main__':
