@@ -1,6 +1,6 @@
 """
 恋朝トレインタイマー (Koiasa Train Timer)
-恋ヶ窪 ⇔ 朝霞台 リアルタイム電車ナビゲーション・ダッシュボード
+恋ヶ窪 ⇔ 北朝霞 リアルタイム電車ナビゲーション・ダッシュボード
 Streamlit Webアプリケーション（地中海オーシャンブルー × すりガラスUI版）
 """
 
@@ -96,7 +96,7 @@ def get_revision_status() -> Dict[str, Any]:
 # ==========================================
 # 認証状態に応じたブラウザタイトル（未認証時は駅名を完全隠蔽し個人情報を徹底保護）
 is_authed = bool(st.session_state.get("authenticated", False))
-app_page_title = "恋朝トレインタイマー | 恋ヶ窪 ⇔ 朝霞台" if is_authed else "🔒 認証 | プライベート ダッシュボード"
+app_page_title = "恋朝トレインタイマー | 恋ヶ窪 ⇔ 北朝霞" if is_authed else "🔒 認証 | プライベート ダッシュボード"
 app_page_icon = "🚆" if is_authed else "🔒"
 
 st.set_page_config(
@@ -728,14 +728,14 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">V4.0</span>
+        <span class="version-tag">V4.1</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 col_d1, col_d2, col_rv = st.columns([5, 5, 2])
 with col_d1:
-    btn_k2a_text = "📍 恋ヶ窪 ➡ 朝霞台" if is_k2a else "恋ヶ窪 ➡ 朝霞台"
+    btn_k2a_text = "📍 恋ヶ窪 ➡ 北朝霞" if is_k2a else "恋ヶ窪 ➡ 北朝霞"
     if st.button(
         btn_k2a_text,
         key="btn_dir_k2a",
@@ -747,7 +747,7 @@ with col_d1:
         st.rerun()
 
 with col_d2:
-    btn_a2k_text = "📍 朝霞台 ➡ 恋ヶ窪" if not is_k2a else "朝霞台 ➡ 恋ヶ窪"
+    btn_a2k_text = "📍 北朝霞 ➡ 恋ヶ窪" if not is_k2a else "北朝霞 ➡ 恋ヶ窪"
     if st.button(
         btn_a2k_text,
         key="btn_dir_a2k",
@@ -829,8 +829,8 @@ if current_route["departure_timestamp_ms"] < now_ms_check:
     selected_idx = 0
     current_route = routes[0]
 
-dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "朝霞台"
-arrv_station = "朝霞台" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
+dept_station = "恋ヶ窪" if st.session_state["direction"] == "koigakubo_to_asakadai" else "北朝霞"
+arrv_station = "北朝霞" if st.session_state["direction"] == "koigakubo_to_asakadai" else "恋ヶ窪"
 
 @st.fragment(run_every=1)
 def render_hero_timer_fragment(

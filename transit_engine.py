@@ -39,8 +39,8 @@ def is_safe_url(url: str) -> bool:
 def get_default_direction(now: Optional[datetime.datetime] = None) -> str:
     """
     アクセス時刻（JST）に応じたスマートなデフォルト行き先を判定
-    - 01:00 〜 12:00: 「恋ヶ窪 ➡ 朝霞台」（午前・出勤時間帯）
-    - 12:01 〜 24:59（翌00:59）: 「朝霞台 ➡ 恋ヶ窪」（午後・帰宅時間帯・深夜便）
+    - 01:00 〜 12:00: 「恋ヶ窪 ➡ 北朝霞」（午前・出勤時間帯）
+    - 12:01 〜 24:59（翌00:59）: 「北朝霞 ➡ 恋ヶ窪」（午後・帰宅時間帯・深夜便）
     """
     if now is None:
         now = datetime.datetime.now(JST)
@@ -95,7 +95,7 @@ def get_transfer_buffer(station: str, pace: str = "normal") -> int:
 def calculate_koigakubo_to_asakadai(
     dept_time: datetime.datetime, pace: str, now: datetime.datetime, timetable_type: Optional[str] = None
 ) -> Dict[str, Any]:
-    """往路：恋ヶ窪 ➡ 朝霞台 の計算（平日/土休日自動適応）"""
+    """往路：恋ヶ窪 ➡ 北朝霞 の計算（平日/土休日自動適応）"""
     if timetable_type is None:
         timetable_type = get_timetable_type(dept_time)
     tt_set = get_timetable_set(timetable_type)
@@ -115,7 +115,7 @@ def calculate_koigakubo_to_asakadai(
     leg3_dept = find_next_departure(musashino_schedule, earliest_m) or earliest_m
     leg3_arrv = leg3_dept + datetime.timedelta(minutes=22)
 
-    final_arrv = leg3_arrv + datetime.timedelta(minutes=1)  # 北朝霞〜朝霞台 徒歩1分
+    final_arrv = leg3_arrv  # 北朝霞駅到着
     total_min = round((final_arrv - leg1_dept).total_seconds() / 60)
     seconds_left = max(0, int((leg1_dept - now).total_seconds()))
 
@@ -155,11 +155,11 @@ def calculate_koigakubo_to_asakadai(
             "dest": "南船橋・東京方面行",
             "from_station": "西国分寺",
             "from_time": leg3_dept.strftime("%H:%M"),
-            "to_station": "北朝霞 (朝霞台)",
+            "to_station": "北朝霞",
             "to_time": leg3_arrv.strftime("%H:%M"),
             "duration": 22,
             "platform": "3番線",
-            "note": "改札を出て右手の階段上が朝霞台駅（東武東上線）",
+            "note": "JR北朝霞駅に到着（東武東上線朝霞台駅へは改札出て徒歩1分）",
         },
     ]
 
@@ -177,7 +177,7 @@ def calculate_koigakubo_to_asakadai(
 def calculate_asakadai_to_koigakubo(
     dept_time: datetime.datetime, pace: str, now: datetime.datetime, timetable_type: Optional[str] = None
 ) -> Dict[str, Any]:
-    """復路：朝霞台 ➡ 恋ヶ窪 の計算（平日/土休日自動適応）"""
+    """復路：北朝霞 ➡ 恋ヶ窪 の計算（平日/土休日自動適応）"""
     if timetable_type is None:
         timetable_type = get_timetable_type(dept_time)
     tt_set = get_timetable_set(timetable_type)
@@ -206,14 +206,14 @@ def calculate_asakadai_to_koigakubo(
             "code": "JM",
             "color": "#e65a00",
             "dest": "府中本町行",
-            "from_station": "朝霞台 (北朝霞)",
+            "from_station": "北朝霞",
             "from_time": leg1_dept.strftime("%H:%M"),
             "to_station": "西国分寺",
             "to_time": leg1_arrv.strftime("%H:%M"),
             "duration": 22,
             "wait_min": round((leg2_dept - leg1_arrv).total_seconds() / 60),
             "platform": "1番線 (府中本町方面)",
-            "note": "階段を下りて中央線上りホーム（東京・新宿方面）へ",
+            "note": "武蔵野線府中本町方面ホームから乗車。西国分寺駅で中央線へ乗り換え",
         },
         {
             "line": "JR中央線快速",
@@ -297,7 +297,7 @@ def get_last_train_info(
 
     if direction == "koigakubo_to_asakadai":
         if timetable_type == "holiday":
-            # 土休日ダイヤ: 恋ヶ窪 23:40 発 ➡ 朝霞台 00:26 着
+            # 土休日ダイヤ: 恋ヶ窪 23:40 発 ➡ 北朝霞 00:26 着
             # 5:00〜23:40: 当日 23:40 発
             # 23:41〜翌4:59: 運行終了
             if now.hour < 5:
@@ -316,17 +316,17 @@ def get_last_train_info(
                 "direction": "koigakubo_to_asakadai",
                 "timetable_type": "holiday",
                 "departure_station": "恋ヶ窪",
-                "destination_station": "朝霞台",
+                "destination_station": "北朝霞",
                 "departure_time": "23:40",
                 "arrival_time": "00:26",
                 "total_minutes": 46,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "恋ヶ窪 23:40 (西武) ➡ 国分寺 23:47 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 朝霞台 00:26",
+                "route_summary": "恋ヶ窪 23:40 (西武) ➡ 国分寺 23:47 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 北朝霞 00:26",
                 "first_train_time": "05:13",
             }
         else:
-            # 平日ダイヤ: 恋ヶ窪 00:03 発 ➡ 朝霞台 00:45 着
+            # 平日ダイヤ: 恋ヶ窪 00:03 発 ➡ 北朝霞 00:45 着
             if now.hour < 5:
                 last_dept_dt = now.replace(hour=0, minute=3, second=0, microsecond=0)
                 if now > last_dept_dt:
@@ -347,25 +347,25 @@ def get_last_train_info(
                 "direction": "koigakubo_to_asakadai",
                 "timetable_type": "weekday",
                 "departure_station": "恋ヶ窪",
-                "destination_station": "朝霞台",
+                "destination_station": "北朝霞",
                 "departure_time": "00:03",
                 "arrival_time": "00:45",
                 "total_minutes": 42,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 朝霞台 00:45",
+                "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 北朝霞 00:45",
                 "first_train_time": "05:12",
             }
 
     else:
-        # 朝霞台発 恋ヶ窪行
+        # 北朝霞発 恋ヶ窪行
         if timetable_type == "holiday":
-            # 土休日ダイヤ: 朝霞台 23:33 発 ➡ 恋ヶ窪 00:13 着
+            # 土休日ダイヤ: 北朝霞 23:15 発 ➡ 恋ヶ窪 23:55 着 (西武終電接続)
             if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                last_dept_dt = now.replace(hour=23, minute=33, second=0, microsecond=0)
+                last_dept_dt = now.replace(hour=23, minute=15, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
@@ -376,23 +376,23 @@ def get_last_train_info(
             return {
                 "direction": "asakadai_to_koigakubo",
                 "timetable_type": "holiday",
-                "departure_station": "朝霞台",
+                "departure_station": "北朝霞",
                 "destination_station": "恋ヶ窪",
-                "departure_time": "23:33",
-                "arrival_time": "00:13",
+                "departure_time": "23:15",
+                "arrival_time": "23:55",
                 "total_minutes": 40,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "朝霞台 23:33 (武蔵野) ➡ 西国分寺 23:58 (中央) ➡ 国分寺 00:10 (西武) ➡ 恋ヶ窪 00:13",
+                "route_summary": "北朝霞 23:15 (武蔵野) ➡ 西国分寺 23:44 (中央) ➡ 国分寺 23:52 (西武) ➡ 恋ヶ窪 23:55",
                 "first_train_time": "05:19",
             }
         else:
-            # 平日ダイヤ: 朝霞台 23:45 発 ➡ 恋ヶ窪 00:34 着
+            # 平日ダイヤ: 北朝霞 23:30 発 ➡ 恋ヶ窪 00:34 着 (西武終電接続)
             if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                last_dept_dt = now.replace(hour=23, minute=45, second=0, microsecond=0)
+                last_dept_dt = now.replace(hour=23, minute=30, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
@@ -403,13 +403,13 @@ def get_last_train_info(
             return {
                 "direction": "asakadai_to_koigakubo",
                 "timetable_type": "weekday",
-                "departure_station": "朝霞台",
+                "departure_station": "北朝霞",
                 "destination_station": "恋ヶ窪",
-                "departure_time": "23:45",
+                "departure_time": "23:30",
                 "arrival_time": "00:34",
-                "total_minutes": 49,
+                "total_minutes": 64,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "朝霞台 23:45 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
-                "first_train_time": "05:14",
+                "route_summary": "北朝霞 23:30 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
+                "first_train_time": "05:19",
             }

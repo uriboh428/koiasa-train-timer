@@ -72,7 +72,7 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(get_transfer_buffer("nishi_kokubunji", "relaxed"), 6)
 
     def test_calculate_koigakubo_to_asakadai(self):
-        """往路：恋ヶ窪 ➡ 朝霞台 の全行程計算整合性"""
+        """往路：恋ヶ窪 ➡ 北朝霞 の全行程計算整合性"""
         dept = datetime.datetime(2026, 9, 20, 8, 10, 0)
         now = datetime.datetime(2026, 9, 20, 8, 5, 0)
         result = calculate_koigakubo_to_asakadai(dept, "normal", now)
@@ -80,6 +80,7 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(result["direction"], "koigakubo_to_asakadai")
         self.assertEqual(result["departure_time"], "08:10")
         self.assertEqual(len(result["legs"]), 3)
+        self.assertEqual(result["legs"][2]["to_station"], "北朝霞")
         self.assertGreaterEqual(result["total_minutes"], 30)
         self.assertLessEqual(result["total_minutes"], 50)
         self.assertEqual(result["seconds_until_departure"], 300)
@@ -87,51 +88,53 @@ class TestTransitEngine(unittest.TestCase):
         self.assertGreater(result["departure_timestamp_ms"], 0)
 
     def test_calculate_asakadai_to_koigakubo(self):
-        """復路：朝霞台 ➡ 恋ヶ窪 の全行程計算整合性"""
-        dept = datetime.datetime(2026, 9, 20, 17, 17, 0)
-        now = datetime.datetime(2026, 9, 20, 17, 10, 0)
+        """復路：北朝霞 ➡ 恋ヶ窪 の全行程計算整合性"""
+        dept = datetime.datetime(2026, 9, 20, 17, 11, 0)
+        now = datetime.datetime(2026, 9, 20, 17, 5, 0)
         result = calculate_asakadai_to_koigakubo(dept, "normal", now)
 
         self.assertEqual(result["direction"], "asakadai_to_koigakubo")
-        self.assertEqual(result["departure_time"], "17:17")
+        self.assertEqual(result["departure_time"], "17:11")
         self.assertEqual(len(result["legs"]), 3)
+        self.assertEqual(result["legs"][0]["from_station"], "北朝霞")
+        self.assertEqual(result["legs"][2]["to_station"], "恋ヶ窪")
         self.assertGreaterEqual(result["total_minutes"], 30)
         self.assertLessEqual(result["total_minutes"], 50)
-        self.assertEqual(result["seconds_until_departure"], 420)
+        self.assertEqual(result["seconds_until_departure"], 360)
         self.assertIn("departure_timestamp_ms", result)
         self.assertGreater(result["departure_timestamp_ms"], 0)
 
     def test_default_direction_by_time(self):
-        """時間帯に応じたデフォルト行き先自動判定（1:00-12:00恋ヶ窪発、12:01-24:59朝霞台発）の境界値検証"""
-        # 1. 01:00 (朝の開始境界) -> 恋ヶ窪 ➡ 朝霞台
+        """時間帯に応じたデフォルト行き先自動判定（1:00-12:00恋ヶ窪発、12:01-24:59北朝霞発）の境界値検証"""
+        # 1. 01:00 (朝の開始境界) -> 恋ヶ窪 ➡ 北朝霞
         t_0100 = datetime.datetime(2026, 9, 20, 1, 0, 0)
         self.assertEqual(get_default_direction(t_0100), "koigakubo_to_asakadai")
 
-        # 2. 08:30 (出勤ラッシュ) -> 恋ヶ窪 ➡ 朝霞台
+        # 2. 08:30 (出勤ラッシュ) -> 恋ヶ窪 ➡ 北朝霞
         t_0830 = datetime.datetime(2026, 9, 20, 8, 30, 0)
         self.assertEqual(get_default_direction(t_0830), "koigakubo_to_asakadai")
 
-        # 3. 12:00 (正午境界値) -> 恋ヶ窪 ➡ 朝霞台
+        # 3. 12:00 (正午境界値) -> 恋ヶ窪 ➡ 北朝霞
         t_1200 = datetime.datetime(2026, 9, 20, 12, 0, 0)
         self.assertEqual(get_default_direction(t_1200), "koigakubo_to_asakadai")
 
-        # 4. 12:01 (午後切り替え境界) -> 朝霞台 ➡ 恋ヶ窪
+        # 4. 12:01 (午後切り替え境界) -> 北朝霞 ➡ 恋ヶ窪
         t_1201 = datetime.datetime(2026, 9, 20, 12, 1, 0)
         self.assertEqual(get_default_direction(t_1201), "asakadai_to_koigakubo")
 
-        # 5. 18:00 (夕方・帰宅ラッシュ) -> 朝霞台 ➡ 恋ヶ窪
+        # 5. 18:00 (夕方・帰宅ラッシュ) -> 北朝霞 ➡ 恋ヶ窪
         t_1800 = datetime.datetime(2026, 9, 20, 18, 0, 0)
         self.assertEqual(get_default_direction(t_1800), "asakadai_to_koigakubo")
 
-        # 6. 23:59 (深夜前) -> 朝霞台 ➡ 恋ヶ窪
+        # 6. 23:59 (深夜前) -> 北朝霞 ➡ 恋ヶ窪
         t_2359 = datetime.datetime(2026, 9, 20, 23, 59, 0)
         self.assertEqual(get_default_direction(t_2359), "asakadai_to_koigakubo")
 
-        # 7. 00:00 (日付跨ぎ) -> 朝霞台 ➡ 恋ヶ窪 (24:00相当)
+        # 7. 00:00 (日付跨ぎ) -> 北朝霞 ➡ 恋ヶ窪 (24:00相当)
         t_0000 = datetime.datetime(2026, 9, 20, 0, 0, 0)
         self.assertEqual(get_default_direction(t_0000), "asakadai_to_koigakubo")
 
-        # 8. 00:59 (深夜最終境界 24:59相当) -> 朝霞台 ➡ 恋ヶ窪
+        # 8. 00:59 (深夜最終境界 24:59相当) -> 北朝霞 ➡ 恋ヶ窪
         t_0059 = datetime.datetime(2026, 9, 20, 0, 59, 0)
         self.assertEqual(get_default_direction(t_0059), "asakadai_to_koigakubo")
 
@@ -160,11 +163,13 @@ class TestTransitEngine(unittest.TestCase):
         self.assertFalse(is_safe_url(""))
 
     def test_last_train_koigakubo_to_asakadai(self):
-        """恋ヶ窪 ➡ 朝霞台 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
+        """恋ヶ窪 ➡ 北朝霞 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
         # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 恋ヶ窪 00:03 発 ---
         # 夜21:00のケース（平日）
         now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
         info_w_21 = get_last_train_info("koigakubo_to_asakadai", now=now_weekday_21)
+        self.assertEqual(info_w_21["departure_station"], "恋ヶ窪")
+        self.assertEqual(info_w_21["destination_station"], "北朝霞")
         self.assertEqual(info_w_21["departure_time"], "00:03")
         self.assertEqual(info_w_21["arrival_time"], "00:45")
         self.assertFalse(info_w_21["is_expired"])
@@ -185,6 +190,7 @@ class TestTransitEngine(unittest.TestCase):
         # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 恋ヶ窪 23:40 発 ---
         now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)  # 敬老の日
         info_h_21 = get_last_train_info("koigakubo_to_asakadai", now=now_holiday_21)
+        self.assertEqual(info_h_21["destination_station"], "北朝霞")
         self.assertEqual(info_h_21["departure_time"], "23:40")
         self.assertEqual(info_h_21["arrival_time"], "00:26")
         self.assertFalse(info_h_21["is_expired"])
@@ -197,34 +203,38 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(info_h_2345["seconds_until_last_train"], 0)
 
     def test_last_train_asakadai_to_koigakubo(self):
-        """朝霞台 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
-        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 朝霞台 23:45 発 ---
+        """北朝霞 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
+        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 北朝霞 23:30 発 ---
         now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
         info_w_21 = get_last_train_info("asakadai_to_koigakubo", now=now_weekday_21)
-        self.assertEqual(info_w_21["departure_time"], "23:45")
+        self.assertEqual(info_w_21["departure_station"], "北朝霞")
+        self.assertEqual(info_w_21["destination_station"], "恋ヶ窪")
+        self.assertEqual(info_w_21["departure_time"], "23:30")
         self.assertEqual(info_w_21["arrival_time"], "00:34")
         self.assertFalse(info_w_21["is_expired"])
-        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 45 * 60)
+        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 30 * 60)
 
-        # 夜23:50のケース（運行終了）
-        now_w_2350 = datetime.datetime(2026, 9, 18, 23, 50, 0)
-        info_w_2350 = get_last_train_info("asakadai_to_koigakubo", now=now_w_2350)
-        self.assertTrue(info_w_2350["is_expired"])
-        self.assertEqual(info_w_2350["seconds_until_last_train"], 0)
+        # 夜23:35のケース（運行終了）
+        now_w_2335 = datetime.datetime(2026, 9, 18, 23, 35, 0)
+        info_w_2335 = get_last_train_info("asakadai_to_koigakubo", now=now_w_2335)
+        self.assertTrue(info_w_2335["is_expired"])
+        self.assertEqual(info_w_2335["seconds_until_last_train"], 0)
 
-        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 朝霞台 23:33 発 ---
+        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 北朝霞 23:15 発 ---
         now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)
         info_h_21 = get_last_train_info("asakadai_to_koigakubo", now=now_holiday_21)
-        self.assertEqual(info_h_21["departure_time"], "23:33")
-        self.assertEqual(info_h_21["arrival_time"], "00:13")
+        self.assertEqual(info_h_21["departure_station"], "北朝霞")
+        self.assertEqual(info_h_21["destination_station"], "恋ヶ窪")
+        self.assertEqual(info_h_21["departure_time"], "23:15")
+        self.assertEqual(info_h_21["arrival_time"], "23:55")
         self.assertFalse(info_h_21["is_expired"])
-        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 33 * 60)
+        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 15 * 60)
 
-        # 夜23:35のケース（土休日は23:33発のため運行終了）
-        now_h_2335 = datetime.datetime(2026, 9, 21, 23, 35, 0)
-        info_h_2335 = get_last_train_info("asakadai_to_koigakubo", now=now_h_2335)
-        self.assertTrue(info_h_2335["is_expired"])
-        self.assertEqual(info_h_2335["seconds_until_last_train"], 0)
+        # 夜23:20のケース（土休日は23:15発のため運行終了）
+        now_h_2320 = datetime.datetime(2026, 9, 21, 23, 20, 0)
+        info_h_2320 = get_last_train_info("asakadai_to_koigakubo", now=now_h_2320)
+        self.assertTrue(info_h_2320["is_expired"])
+        self.assertEqual(info_h_2320["seconds_until_last_train"], 0)
 
 from revision_detector import parse_pub_date, check_timetable_revision, fetch_timetable_news, JST
 
