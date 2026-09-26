@@ -53,7 +53,7 @@ class TestTransitEngine(unittest.TestCase):
         nxt = find_next_departure(KOIGAKUBO_DEPARTURES, base)
         self.assertIsNotNone(nxt)
         self.assertEqual(nxt.hour, 12)
-        self.assertEqual(nxt.minute, 15)
+        self.assertEqual(nxt.minute, 16)
 
     def test_find_next_departures_list(self):
         """直近3便が正しく時間順に取得できるか"""
@@ -166,22 +166,22 @@ class TestTransitEngine(unittest.TestCase):
 
     def test_last_train_koigakubo_to_asakadai(self):
         """恋ヶ窪 ➡ 北朝霞 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
-        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 恋ヶ窪 00:03 発 ---
+        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 恋ヶ窪 23:55 発 ➡ 北朝霞 00:40 着 ---
         # 夜21:00のケース（平日）
         now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
         info_w_21 = get_last_train_info("koigakubo_to_asakadai", now=now_weekday_21)
         self.assertEqual(info_w_21["departure_station"], "恋ヶ窪")
         self.assertEqual(info_w_21["destination_station"], "北朝霞")
-        self.assertEqual(info_w_21["departure_time"], "00:03")
+        self.assertEqual(info_w_21["departure_time"], "23:55")
         self.assertEqual(info_w_21["arrival_time"], "00:40")
         self.assertFalse(info_w_21["is_expired"])
-        self.assertEqual(info_w_21["seconds_until_last_train"], 3 * 3600 + 3 * 60)
+        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 55 * 60)
 
-        # 深夜0:01のケース（平日翌日未明・あと2分）
+        # 深夜0:01のケース（平日翌日未明・運行終了）
         now_weekday_0001 = datetime.datetime(2026, 9, 19, 0, 1, 0)
-        # 土曜未明の0:01は、金曜深夜運転の00:03発便
         info_w_0001 = get_last_train_info("koigakubo_to_asakadai", now=now_weekday_0001)
-        self.assertFalse(info_w_0001["is_expired"])
+        self.assertTrue(info_w_0001["is_expired"])
+        self.assertEqual(info_w_0001["seconds_until_last_train"], 0)
 
         # 深夜1:00のケース（運行終了）
         now_0100 = datetime.datetime(2026, 9, 18, 1, 0, 0)
@@ -189,16 +189,16 @@ class TestTransitEngine(unittest.TestCase):
         self.assertTrue(info_0100["is_expired"])
         self.assertEqual(info_0100["seconds_until_last_train"], 0)
 
-        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 恋ヶ窪 23:40 発 ---
+        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 恋ヶ窪 23:35 発 ➡ 北朝霞 00:22 着 ---
         now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)  # 敬老の日
         info_h_21 = get_last_train_info("koigakubo_to_asakadai", now=now_holiday_21)
         self.assertEqual(info_h_21["destination_station"], "北朝霞")
-        self.assertEqual(info_h_21["departure_time"], "23:40")
+        self.assertEqual(info_h_21["departure_time"], "23:35")
         self.assertEqual(info_h_21["arrival_time"], "00:22")
         self.assertFalse(info_h_21["is_expired"])
-        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 40 * 60)
+        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 35 * 60)
 
-        # 23:45のケース（土休日は23:40発のため運行終了）
+        # 23:45のケース（土休日は23:35発のため運行終了）
         now_holiday_2345 = datetime.datetime(2026, 9, 21, 23, 45, 0)
         info_h_2345 = get_last_train_info("koigakubo_to_asakadai", now=now_holiday_2345)
         self.assertTrue(info_h_2345["is_expired"])
@@ -206,15 +206,15 @@ class TestTransitEngine(unittest.TestCase):
 
     def test_last_train_asakadai_to_koigakubo(self):
         """北朝霞 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
-        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 北朝霞 23:47 発 ---
+        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 北朝霞 23:30 発 ➡ 恋ヶ窪 00:07 着 ---
         now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
         info_w_21 = get_last_train_info("asakadai_to_koigakubo", now=now_weekday_21)
         self.assertEqual(info_w_21["departure_station"], "北朝霞")
         self.assertEqual(info_w_21["destination_station"], "恋ヶ窪")
-        self.assertEqual(info_w_21["departure_time"], "23:47")
-        self.assertEqual(info_w_21["arrival_time"], "00:34")
+        self.assertEqual(info_w_21["departure_time"], "23:30")
+        self.assertEqual(info_w_21["arrival_time"], "00:07")
         self.assertFalse(info_w_21["is_expired"])
-        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 47 * 60)
+        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 30 * 60)
 
         # 夜23:50のケース（運行終了）
         now_w_2350 = datetime.datetime(2026, 9, 18, 23, 50, 0)
@@ -222,21 +222,21 @@ class TestTransitEngine(unittest.TestCase):
         self.assertTrue(info_w_2350["is_expired"])
         self.assertEqual(info_w_2350["seconds_until_last_train"], 0)
 
-        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 北朝霞 23:15 発 ---
+        # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 北朝霞 23:30 発 ➡ 恋ヶ窪 00:04 着 ---
         now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)
         info_h_21 = get_last_train_info("asakadai_to_koigakubo", now=now_holiday_21)
         self.assertEqual(info_h_21["departure_station"], "北朝霞")
         self.assertEqual(info_h_21["destination_station"], "恋ヶ窪")
-        self.assertEqual(info_h_21["departure_time"], "23:15")
-        self.assertEqual(info_h_21["arrival_time"], "23:55")
+        self.assertEqual(info_h_21["departure_time"], "23:30")
+        self.assertEqual(info_h_21["arrival_time"], "00:04")
         self.assertFalse(info_h_21["is_expired"])
-        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 15 * 60)
+        self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 30 * 60)
 
-        # 夜23:20のケース（土休日は23:15発のため運行終了）
-        now_h_2320 = datetime.datetime(2026, 9, 21, 23, 20, 0)
-        info_h_2320 = get_last_train_info("asakadai_to_koigakubo", now=now_h_2320)
-        self.assertTrue(info_h_2320["is_expired"])
-        self.assertEqual(info_h_2320["seconds_until_last_train"], 0)
+        # 夜23:35のケース（土休日は23:30発のため運行終了）
+        now_h_2335 = datetime.datetime(2026, 9, 21, 23, 35, 0)
+        info_h_2335 = get_last_train_info("asakadai_to_koigakubo", now=now_h_2335)
+        self.assertTrue(info_h_2335["is_expired"])
+        self.assertEqual(info_h_2335["seconds_until_last_train"], 0)
 
 from revision_detector import parse_pub_date, check_timetable_revision, fetch_timetable_news, JST
 
@@ -491,13 +491,15 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.2 に統一され、説明表記が省略されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.3 に統一され、説明表記が省略されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("V4.2", content, "app.py に V4.2 が含まれている必要があります")
-        self.assertNotIn("Ver 4.2 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
-        self.assertNotIn("V4.2 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertIn("V4.3", content, "app.py に V4.3 が含まれている必要があります")
+        self.assertNotIn("Ver 4.3 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("V4.3 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("Ver 4.2", content, "app.py に古い Ver 4.2 が残っていてはいけません")
+        self.assertNotIn("V4.2", content, "app.py に古い V4.2 が残っていてはいけません")
         self.assertNotIn("Ver 4.1", content, "app.py に古い Ver 4.1 が残っていてはいけません")
         self.assertNotIn("Ver 4.0", content, "app.py に古い Ver 4.0 が残っていてはいけません")
         self.assertNotIn("Ver 3.9", content, "app.py に古い Ver 3.9 が残っていてはいけません")
@@ -520,23 +522,23 @@ class TestRevisionDetector(unittest.TestCase):
         from transit_engine import find_next_departure, get_routes, get_timestamp_ms
         from timetable_data import KOIGAKUBO_DEPARTURES
 
-        # 朝 8:02 発の便をターゲットとするテスト
+        # 朝 8:02 発の便をターゲットとするテスト（平日 2026-09-18）
         # 1. 発車1秒前 (08:01:59) -> 08:02 発が取得されること
-        t_before = datetime.datetime(2026, 9, 20, 8, 1, 59)
+        t_before = datetime.datetime(2026, 9, 18, 8, 1, 59)
         dept_before = find_next_departure(KOIGAKUBO_DEPARTURES, t_before)
         self.assertIsNotNone(dept_before)
         self.assertEqual(dept_before.hour, 8)
         self.assertEqual(dept_before.minute, 2)
 
         # 2. 発車0秒 (08:02:00) -> 08:02 発が取得されること
-        t_exact = datetime.datetime(2026, 9, 20, 8, 2, 0)
+        t_exact = datetime.datetime(2026, 9, 18, 8, 2, 0)
         dept_exact = find_next_departure(KOIGAKUBO_DEPARTURES, t_exact)
         self.assertIsNotNone(dept_exact)
         self.assertEqual(dept_exact.hour, 8)
         self.assertEqual(dept_exact.minute, 2)
 
-        # 3. 発車1秒後 (08:02:01) -> 自動的に次の便（08:14発など）に繰り上がること
-        t_after = datetime.datetime(2026, 9, 20, 8, 2, 1)
+        # 3. 発車1秒後 (08:02:01) -> 自動的に次の便（08:09発など）に繰り上がること
+        t_after = datetime.datetime(2026, 9, 18, 8, 2, 1)
         dept_after = find_next_departure(KOIGAKUBO_DEPARTURES, t_after)
         self.assertIsNotNone(dept_after)
         self.assertEqual(dept_after.hour, 8)
@@ -771,16 +773,16 @@ class TestRevisionDetector(unittest.TestCase):
         diff_sec_departed_w = (dept_ms_w - get_timestamp_ms(check_departed_w)) // 1000
         self.assertLessEqual(diff_sec_departed_w, -2, "発車後2秒で次便更新トリガー条件が成立すること")
 
-        # 3. 平日自律更新ガード: 次便（8:10発）が先頭便として自動取得されること
+        # 3. 平日自律更新ガード: 次便（8:09発）が先頭便として自動取得されること
         routes_next_w = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=check_departed_w)
         self.assertGreater(len(routes_next_w), 0)
-        self.assertEqual(routes_next_w[0]["departure_time"], "08:10", "平日の発車後は即座に次便（8:10発）へバトンタッチすること")
+        self.assertEqual(routes_next_w[0]["departure_time"], "08:09", "平日の発車後は即座に次便（8:09発）へバトンタッチすること")
 
-        # --- B. 土休日ダイヤでの自動更新検証（2026-09-20 日曜日）: 8:02 ➡ 8:09 ---
+        # --- B. 土休日ダイヤでの自動更新検証（2026-09-20 日曜日）: 8:02 ➡ 8:04 ---
         check_departed_h = datetime.datetime(2026, 9, 20, 8, 2, 2, tzinfo=JST)
         routes_next_h = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=check_departed_h)
         self.assertGreater(len(routes_next_h), 0)
-        self.assertEqual(routes_next_h[0]["departure_time"], "08:09", "土休日の発車後は即座に次便（8:09発）へバトンタッチすること")
+        self.assertEqual(routes_next_h[0]["departure_time"], "08:04", "土休日の発車後は即座に次便（8:04発）へバトンタッチすること")
 
     def test_offset_and_pace_changes_reactivity(self):
         """【Dynamic Settings】出発オフセットおよび乗換ペースの変更がルート探索に正しく即時反映されることを検証"""
@@ -789,13 +791,13 @@ class TestRevisionDetector(unittest.TestCase):
 
         sim_now = datetime.datetime(2026, 9, 20, 10, 0, 0, tzinfo=JST)
 
-        # A. オフセットなし（今すぐ: 10:00）➡ 恋ヶ窪 10:05 発
+        # A. オフセットなし（今すぐ: 10:00）➡ 恋ヶ窪 10:04 発
         r_now = get_routes("koigakubo_to_asakadai", offset_minutes=0, pace="normal", now=sim_now)
-        self.assertEqual(r_now[0]["departure_time"], "10:05")
+        self.assertEqual(r_now[0]["departure_time"], "10:04")
 
-        # B. オフセット+15分（10:15以降に出発）➡ 恋ヶ窪 10:15 発
+        # B. オフセット+15分（10:15以降に出発）➡ 恋ヶ窪 10:24 発
         r_15m = get_routes("koigakubo_to_asakadai", offset_minutes=15, pace="normal", now=sim_now)
-        self.assertEqual(r_15m[0]["departure_time"], "10:15")
+        self.assertEqual(r_15m[0]["departure_time"], "10:24")
 
         # C. オフセット+30分（10:30以降に出発）➡ 恋ヶ窪 10:35 発
         r_30m = get_routes("koigakubo_to_asakadai", offset_minutes=30, pace="normal", now=sim_now)

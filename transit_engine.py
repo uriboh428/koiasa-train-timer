@@ -101,7 +101,7 @@ def calculate_koigakubo_to_asakadai(
     tt_set = get_timetable_set(timetable_type)
 
     leg1_dept = dept_time
-    leg1_arrv = leg1_dept + datetime.timedelta(minutes=3)
+    leg1_arrv = leg1_dept + datetime.timedelta(minutes=2)
 
     buf_k = get_transfer_buffer("kokubunji", pace)
     earliest_chuo = leg1_arrv + datetime.timedelta(minutes=buf_k)
@@ -129,7 +129,7 @@ def calculate_koigakubo_to_asakadai(
             "from_time": leg1_dept.strftime("%H:%M"),
             "to_station": "国分寺",
             "to_time": leg1_arrv.strftime("%H:%M"),
-            "duration": 3,
+            "duration": 2,
             "wait_min": round((leg2_dept - leg1_arrv).total_seconds() / 60),
             "platform": "1・2番線",
             "note": "西武線改札からJR中央線ホームへ乗り換え",
@@ -195,7 +195,7 @@ def calculate_asakadai_to_koigakubo(
     earliest_s = leg2_arrv + datetime.timedelta(minutes=buf_k)
     seibu_schedule = tt_set["kokubunji_seibu_down"]
     leg3_dept = find_next_departure(seibu_schedule, earliest_s) or earliest_s
-    leg3_arrv = leg3_dept + datetime.timedelta(minutes=3)
+    leg3_arrv = leg3_dept + datetime.timedelta(minutes=2)
 
     total_min = round((leg3_arrv - leg1_dept).total_seconds() / 60)
     seconds_left = max(0, int((leg1_dept - now).total_seconds()))
@@ -238,7 +238,7 @@ def calculate_asakadai_to_koigakubo(
             "from_time": leg3_dept.strftime("%H:%M"),
             "to_station": "恋ヶ窪",
             "to_time": leg3_arrv.strftime("%H:%M"),
-            "duration": 3,
+            "duration": 2,
             "platform": "5番線 (西武ホーム)",
             "note": "1駅で恋ヶ窪駅へ到着します",
         },
@@ -297,14 +297,14 @@ def get_last_train_info(
 
     if direction == "koigakubo_to_asakadai":
         if timetable_type == "holiday":
-            # 土休日ダイヤ: 恋ヶ窪 23:40 発 ➡ 北朝霞 00:26 着
-            # 5:00〜23:40: 当日 23:40 発
-            # 23:41〜翌4:59: 運行終了
+            # 土休日ダイヤ: 恋ヶ窪 23:35 発 ➡ 北朝霞 00:22 着
+            # 5:00〜23:35: 当日 23:35 発
+            # 23:36〜翌4:59: 運行終了
             if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                last_dept_dt = now.replace(hour=23, minute=40, second=0, microsecond=0)
+                last_dept_dt = now.replace(hour=23, minute=35, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
@@ -317,55 +317,51 @@ def get_last_train_info(
                 "timetable_type": "holiday",
                 "departure_station": "恋ヶ窪",
                 "destination_station": "北朝霞",
-                "departure_time": "23:40",
+                "departure_time": "23:35",
                 "arrival_time": "00:22",
-                "total_minutes": 42,
+                "total_minutes": 47,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "恋ヶ窪 23:40 (西武) ➡ 国分寺 23:47 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 北朝霞 00:22",
+                "route_summary": "恋ヶ窪 23:35 (西武) ➡ 国分寺 23:45 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 北朝霞 00:22",
                 "first_train_time": "05:13",
             }
         else:
-            # 平日ダイヤ: 恋ヶ窪 00:03 発 ➡ 北朝霞 00:40 着
+            # 平日ダイヤ: 恋ヶ窪 23:55 発 ➡ 北朝霞 00:40 着
             if now.hour < 5:
-                last_dept_dt = now.replace(hour=0, minute=3, second=0, microsecond=0)
+                is_expired = True
+                seconds_left = 0
+            else:
+                last_dept_dt = now.replace(hour=23, minute=55, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
                 else:
                     is_expired = False
                     seconds_left = int((last_dept_dt - now).total_seconds())
-            else:
-                tomorrow = base_date + datetime.timedelta(days=1)
-                last_dept_dt = datetime.datetime.combine(tomorrow, datetime.time(0, 3))
-                if now.tzinfo:
-                    last_dept_dt = last_dept_dt.replace(tzinfo=now.tzinfo)
-                is_expired = False
-                seconds_left = int((last_dept_dt - now).total_seconds())
 
             return {
                 "direction": "koigakubo_to_asakadai",
                 "timetable_type": "weekday",
                 "departure_station": "恋ヶ窪",
                 "destination_station": "北朝霞",
-                "departure_time": "00:03",
+                "departure_time": "23:55",
                 "arrival_time": "00:40",
-                "total_minutes": 37,
+                "total_minutes": 45,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 北朝霞 00:40",
-                "first_train_time": "05:12",
+                "route_summary": "恋ヶ窪 23:55 (西武) ➡ 国分寺 00:01 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 北朝霞 00:40",
+                "first_train_time": "05:13",
             }
 
     else:
         # 北朝霞発 恋ヶ窪行
         if timetable_type == "holiday":
-            # 土休日ダイヤ: 北朝霞 23:15 発 ➡ 恋ヶ窪 23:55 着 (西武終電接続)
+            # 土休日ダイヤ: 北朝霞 23:30 発 ➡ 恋ヶ窪 00:04 着 (西武終電接続)
             if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                last_dept_dt = now.replace(hour=23, minute=15, second=0, microsecond=0)
+                last_dept_dt = now.replace(hour=23, minute=30, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
@@ -378,21 +374,21 @@ def get_last_train_info(
                 "timetable_type": "holiday",
                 "departure_station": "北朝霞",
                 "destination_station": "恋ヶ窪",
-                "departure_time": "23:15",
-                "arrival_time": "23:55",
-                "total_minutes": 40,
+                "departure_time": "23:30",
+                "arrival_time": "00:04",
+                "total_minutes": 34,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "北朝霞 23:15 (武蔵野) ➡ 西国分寺 23:44 (中央) ➡ 国分寺 23:52 (西武) ➡ 恋ヶ窪 23:55",
+                "route_summary": "北朝霞 23:30 (武蔵野) ➡ 西国分寺 23:56 (中央) ➡ 国分寺 00:02 (西武) ➡ 恋ヶ窪 00:04",
                 "first_train_time": "05:19",
             }
         else:
-            # 平日ダイヤ: 北朝霞 23:47 発 ➡ 恋ヶ窪 00:34 着 (西武終電接続)
+            # 平日ダイヤ: 北朝霞 23:30 発 ➡ 恋ヶ窪 00:07 着 (西武終電接続)
             if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                last_dept_dt = now.replace(hour=23, minute=47, second=0, microsecond=0)
+                last_dept_dt = now.replace(hour=23, minute=30, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
@@ -405,11 +401,11 @@ def get_last_train_info(
                 "timetable_type": "weekday",
                 "departure_station": "北朝霞",
                 "destination_station": "恋ヶ窪",
-                "departure_time": "23:47",
-                "arrival_time": "00:34",
-                "total_minutes": 47,
+                "departure_time": "23:30",
+                "arrival_time": "00:07",
+                "total_minutes": 37,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "北朝霞 23:47 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
+                "route_summary": "北朝霞 23:30 (武蔵野) ➡ 西国分寺 23:57 (中央) ➡ 国分寺 00:05 (西武) ➡ 恋ヶ窪 00:07",
                 "first_train_time": "05:19",
             }
