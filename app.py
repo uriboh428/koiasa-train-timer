@@ -728,7 +728,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">V4.1</span>
+        <span class="version-tag">V4.2</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -765,19 +765,17 @@ with col_rv:
         st.rerun()
 
 # ダイヤ種別ステータスバナー（祝日・土日・平日の完全自動判定表示）
-tt_holiday_extra = f" <span style='font-size:0.75rem; font-weight:700; background:#FEF3C7; color:#92400E; padding:1px 6px; border-radius:4px; margin-left:4px;'>祝日: {escape_text(active_holiday_name)}</span>" if active_holiday_name else ""
-tt_notice_html = f" <span style='font-size:0.72rem; color:{active_text_color}; font-weight:600; margin-left:auto;'>{active_notice}</span>" if active_notice else ""
+# Markdownパーサーによる空行＋4スペース誤認（コードブロック化）を完全に排除するため、インデントなしの純粋HTMLを組み立てる
+banner_elements = [
+    f"<span style='font-size:0.82rem; font-weight:800; color:{active_text_color}; display:flex; align-items:center; gap:4px;'><span>{active_icon}</span><span>{active_label}</span></span>"
+]
+if active_holiday_name:
+    banner_elements.append(f"<span style='font-size:0.75rem; font-weight:700; background:#FEF3C7; color:#92400E; padding:1px 6px; border-radius:4px; margin-left:4px;'>祝日: {escape_text(active_holiday_name)}</span>")
+if active_notice:
+    banner_elements.append(f"<span style='font-size:0.72rem; color:{active_text_color}; font-weight:600; margin-left:auto;'>{active_notice}</span>")
 
-st.markdown(f"""
-<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; background:{active_bg}; border:1px solid {active_border}; border-radius:10px; padding:6px 12px; margin: 8px 0 12px 0;">
-    <span style="font-size:0.82rem; font-weight:800; color:{active_text_color}; display:flex; align-items:center; gap:4px;">
-        <span>{active_icon}</span>
-        <span>{active_label}</span>
-    </span>
-    {tt_holiday_extra}
-    {tt_notice_html}
-</div>
-""", unsafe_allow_html=True)
+banner_html = f"<div style='display:flex; align-items:center; flex-wrap:wrap; gap:6px; background:{active_bg}; border:1px solid {active_border}; border-radius:10px; padding:6px 12px; margin:8px 0 12px 0;'>{''.join(banner_elements)}</div>"
+st.markdown(banner_html, unsafe_allow_html=True)
 
 if is_manual:
     col_rst1, col_rst2 = st.columns([7, 3])
@@ -874,41 +872,39 @@ def render_hero_timer_fragment(
 
     clock_str = f"{now_dt.hour:02d}:{now_dt.minute:02d}:{now_dt.second:02d}"
 
-    html_snippet = f"""
-    <div class="hero-timer-card">
-        <div class="hero-timer-header">
-            <span class="hero-micro-label">⏱️ 次の発車まで</span>
-            <div><span id="hero-status-badge" class="badge {badge_class}">{badge_text}</span></div>
-        </div>
-        <div class="hero-digits-wrap">
-            <div class="hero-digits">
-                <span id="hero-min-str">{min_str}</span><span class="unit">分</span><span id="hero-sec-str">{sec_str}</span><span class="unit">秒</span>
-            </div>
-        </div>
-        <div class="hero-schedule-bar">
-            <div class="hero-st-block">
-                <div class="hero-st-name">{dept_station} 発</div>
-                <div class="hero-st-time">{dept_time}</div>
-            </div>
-            <div class="hero-arrow-block">
-                <div class="hero-duration-badge">約{total_minutes}分</div>
-                <div style="display:flex; align-items:center; justify-content:center; margin-top:2px;">
-                    <svg width="24" height="13" viewBox="0 0 24 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));">
-                        <path d="M1 6.5H21M21 6.5L15.5 1.5M21 6.5L15.5 11.5" stroke="#FEF08A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-            </div>
-            <div class="hero-st-block" style="text-align:right;">
-                <div class="hero-st-name">{arrv_station} 着</div>
-                <div class="hero-st-time arrival">{arrv_time}</div>
-            </div>
-        </div>
-        <div class="hero-last-train-row">
-            <span class="hero-last-train-label">🌙 今夜の最終便案内</span>
-            <span class="hero-last-train-val">{dept_station} <span style="color:#FEF08A; font-weight:900;">{last_train_dept}</span> 発（所要 <span style="color:#FEF08A; font-weight:800;">{last_train_duration}分</span>）</span>
+    html_snippet = f"""<div class="hero-timer-card">
+    <div class="hero-timer-header">
+        <span class="hero-micro-label">⏱️ 次の発車まで</span>
+        <div><span id="hero-status-badge" class="badge {badge_class}">{badge_text}</span></div>
+    </div>
+    <div class="hero-digits-wrap">
+        <div class="hero-digits">
+            <span id="hero-min-str">{min_str}</span><span class="unit">分</span><span id="hero-sec-str">{sec_str}</span><span class="unit">秒</span>
         </div>
     </div>
-    """
+    <div class="hero-schedule-bar">
+        <div class="hero-st-block">
+            <div class="hero-st-name">{dept_station} 発</div>
+            <div class="hero-st-time">{dept_time}</div>
+        </div>
+        <div class="hero-arrow-block">
+            <div class="hero-duration-badge">約{total_minutes}分</div>
+            <div style="display:flex; align-items:center; justify-content:center; margin-top:2px;">
+                <svg width="24" height="13" viewBox="0 0 24 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));">
+                    <path d="M1 6.5H21M21 6.5L15.5 1.5M21 6.5L15.5 11.5" stroke="#FEF08A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+        <div class="hero-st-block" style="text-align:right;">
+            <div class="hero-st-name">{arrv_station} 着</div>
+            <div class="hero-st-time arrival">{arrv_time}</div>
+        </div>
+    </div>
+    <div class="hero-last-train-row">
+        <span class="hero-last-train-label">🌙 今夜の最終便案内</span>
+        <span class="hero-last-train-val">{dept_station} <span style="color:#FEF08A; font-weight:900;">{last_train_dept}</span> 発（所要 <span style="color:#FEF08A; font-weight:800;">{last_train_duration}分</span>）</span>
+    </div>
+</div>"""
     st.markdown(html_snippet, unsafe_allow_html=True)
 
 render_hero_timer_fragment(
@@ -1012,15 +1008,13 @@ st.markdown(metro_html, unsafe_allow_html=True)
 # 二次情報（その後の電車候補・詳細設定・終電・ダイヤ改正）
 # -------------------------------------------------------------
 if len(routes) > 1:
-    st.markdown(f"""
-    <div style="font-size:0.75rem; font-weight:800; color:#44403C; letter-spacing:0.04em; margin: 14px 2px 8px 2px; display:flex; justify-content:space-between; align-items:center;">
-        <span style="display:flex; align-items:center; gap:5px;">
-            <span class="material-symbols-outlined" style="font-size:16px; color:#EA580C;">schedule</span>
-            <span>その後の運行候補を比較</span>
-        </span>
-        <span style="font-size:0.68rem; color:#78716C; font-weight:700; background:#FAF6EE; border:1px solid #F3E8D6; padding:2px 8px; border-radius:10px;">全{len(routes)}候補</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"""<div style="font-size:0.75rem; font-weight:800; color:#44403C; letter-spacing:0.04em; margin: 14px 2px 8px 2px; display:flex; justify-content:space-between; align-items:center;">
+    <span style="display:flex; align-items:center; gap:5px;">
+        <span class="material-symbols-outlined" style="font-size:16px; color:#EA580C;">schedule</span>
+        <span>その後の運行候補を比較</span>
+    </span>
+    <span style="font-size:0.68rem; color:#78716C; font-weight:700; background:#FAF6EE; border:1px solid #F3E8D6; padding:2px 8px; border-radius:10px;">全{len(routes)}候補</span>
+</div>""", unsafe_allow_html=True)
     cols = st.columns(len(routes))
     for i, r in enumerate(routes):
         with cols[i]:
@@ -1090,12 +1084,10 @@ with st.expander(f"🌙 終電のご案内（最終連絡便: {last_train['depar
     if last_train["is_expired"]:
         st.markdown(f"<div style='font-size:0.8rem; color:#64748B;'>本日の運行は終了いたしました（始発 {last_train['first_train_time']}）</div>", unsafe_allow_html=True)
     else:
-        st.markdown(f"""
-        <div style="background:#FFFDF9; border:1px solid #EADBC8; border-radius:10px; padding:10px 14px; font-size:0.82rem; color:#1C1917; line-height:1.6; box-shadow:0 1px 3px rgba(67,20,7,0.04);">
-            <strong style="color:#9A3412; font-size:0.88rem;">{last_train['departure_station']} {last_train['departure_time']}発 → {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 <strong style="color:#C2410C;">{last_train['total_minutes']}分</strong>）<br>
-            <span style="font-size:0.75rem; color:#44403C; font-weight:600;">ルート: {escape_text(last_train['route_summary'])}</span>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div style="background:#FFFDF9; border:1px solid #EADBC8; border-radius:10px; padding:10px 14px; font-size:0.82rem; color:#1C1917; line-height:1.6; box-shadow:0 1px 3px rgba(67,20,7,0.04);">
+    <strong style="color:#9A3412; font-size:0.88rem;">{last_train['departure_station']} {last_train['departure_time']}発 → {last_train['destination_station']} {last_train['arrival_time']}着</strong>（所要 <strong style="color:#C2410C;">{last_train['total_minutes']}分</strong>）<br>
+    <span style="font-size:0.75rem; color:#44403C; font-weight:600;">ルート: {escape_text(last_train['route_summary'])}</span>
+</div>""", unsafe_allow_html=True)
 
 # ダイヤ改正ステータス（通知があれば表示）
 if revision_info.get("has_alert"):

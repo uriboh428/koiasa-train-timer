@@ -113,7 +113,7 @@ def calculate_koigakubo_to_asakadai(
     earliest_m = leg2_arrv + datetime.timedelta(minutes=buf_n)
     musashino_schedule = tt_set["nishi_kokubunji_musashino_up"]
     leg3_dept = find_next_departure(musashino_schedule, earliest_m) or earliest_m
-    leg3_arrv = leg3_dept + datetime.timedelta(minutes=22)
+    leg3_arrv = leg3_dept + datetime.timedelta(minutes=18)
 
     final_arrv = leg3_arrv  # 北朝霞駅到着
     total_min = round((final_arrv - leg1_dept).total_seconds() / 60)
@@ -157,7 +157,7 @@ def calculate_koigakubo_to_asakadai(
             "from_time": leg3_dept.strftime("%H:%M"),
             "to_station": "北朝霞",
             "to_time": leg3_arrv.strftime("%H:%M"),
-            "duration": 22,
+            "duration": 18,
             "platform": "3番線",
             "note": "JR北朝霞駅に到着（東武東上線朝霞台駅へは改札出て徒歩1分）",
         },
@@ -183,7 +183,7 @@ def calculate_asakadai_to_koigakubo(
     tt_set = get_timetable_set(timetable_type)
 
     leg1_dept = dept_time
-    leg1_arrv = leg1_dept + datetime.timedelta(minutes=22)
+    leg1_arrv = leg1_dept + datetime.timedelta(minutes=18)
 
     buf_n = get_transfer_buffer("nishi_kokubunji", pace)
     earliest_c = leg1_arrv + datetime.timedelta(minutes=buf_n)
@@ -210,7 +210,7 @@ def calculate_asakadai_to_koigakubo(
             "from_time": leg1_dept.strftime("%H:%M"),
             "to_station": "西国分寺",
             "to_time": leg1_arrv.strftime("%H:%M"),
-            "duration": 22,
+            "duration": 18,
             "wait_min": round((leg2_dept - leg1_arrv).total_seconds() / 60),
             "platform": "1番線 (府中本町方面)",
             "note": "武蔵野線府中本町方面ホームから乗車。西国分寺駅で中央線へ乗り換え",
@@ -318,15 +318,15 @@ def get_last_train_info(
                 "departure_station": "恋ヶ窪",
                 "destination_station": "北朝霞",
                 "departure_time": "23:40",
-                "arrival_time": "00:26",
-                "total_minutes": 46,
+                "arrival_time": "00:22",
+                "total_minutes": 42,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "恋ヶ窪 23:40 (西武) ➡ 国分寺 23:47 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 北朝霞 00:26",
+                "route_summary": "恋ヶ窪 23:40 (西武) ➡ 国分寺 23:47 (中央) ➡ 西国分寺 00:04 (武蔵野) ➡ 北朝霞 00:22",
                 "first_train_time": "05:13",
             }
         else:
-            # 平日ダイヤ: 恋ヶ窪 00:03 発 ➡ 北朝霞 00:45 着
+            # 平日ダイヤ: 恋ヶ窪 00:03 発 ➡ 北朝霞 00:40 着
             if now.hour < 5:
                 last_dept_dt = now.replace(hour=0, minute=3, second=0, microsecond=0)
                 if now > last_dept_dt:
@@ -349,11 +349,11 @@ def get_last_train_info(
                 "departure_station": "恋ヶ窪",
                 "destination_station": "北朝霞",
                 "departure_time": "00:03",
-                "arrival_time": "00:45",
-                "total_minutes": 42,
+                "arrival_time": "00:40",
+                "total_minutes": 37,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 北朝霞 00:45",
+                "route_summary": "恋ヶ窪 00:03 (西武) ➡ 国分寺 00:10 (中央) ➡ 西国分寺 00:22 (武蔵野) ➡ 北朝霞 00:40",
                 "first_train_time": "05:12",
             }
 
@@ -387,12 +387,12 @@ def get_last_train_info(
                 "first_train_time": "05:19",
             }
         else:
-            # 平日ダイヤ: 北朝霞 23:30 発 ➡ 恋ヶ窪 00:34 着 (西武終電接続)
+            # 平日ダイヤ: 北朝霞 23:47 発 ➡ 恋ヶ窪 00:34 着 (西武終電接続)
             if now.hour < 5:
                 is_expired = True
                 seconds_left = 0
             else:
-                last_dept_dt = now.replace(hour=23, minute=30, second=0, microsecond=0)
+                last_dept_dt = now.replace(hour=23, minute=47, second=0, microsecond=0)
                 if now > last_dept_dt:
                     is_expired = True
                     seconds_left = 0
@@ -405,11 +405,11 @@ def get_last_train_info(
                 "timetable_type": "weekday",
                 "departure_station": "北朝霞",
                 "destination_station": "恋ヶ窪",
-                "departure_time": "23:30",
+                "departure_time": "23:47",
                 "arrival_time": "00:34",
-                "total_minutes": 64,
+                "total_minutes": 47,
                 "seconds_until_last_train": seconds_left,
                 "is_expired": is_expired,
-                "route_summary": "北朝霞 23:30 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
+                "route_summary": "北朝霞 23:47 (武蔵野) ➡ 西国分寺 00:10 (中央) ➡ 国分寺 00:31 (西武) ➡ 恋ヶ窪 00:34",
                 "first_train_time": "05:19",
             }

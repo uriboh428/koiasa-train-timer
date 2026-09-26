@@ -81,6 +81,7 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(result["departure_time"], "08:10")
         self.assertEqual(len(result["legs"]), 3)
         self.assertEqual(result["legs"][2]["to_station"], "北朝霞")
+        self.assertEqual(result["legs"][2]["duration"], 18)
         self.assertGreaterEqual(result["total_minutes"], 30)
         self.assertLessEqual(result["total_minutes"], 50)
         self.assertEqual(result["seconds_until_departure"], 300)
@@ -97,6 +98,7 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(result["departure_time"], "17:11")
         self.assertEqual(len(result["legs"]), 3)
         self.assertEqual(result["legs"][0]["from_station"], "北朝霞")
+        self.assertEqual(result["legs"][0]["duration"], 18)
         self.assertEqual(result["legs"][2]["to_station"], "恋ヶ窪")
         self.assertGreaterEqual(result["total_minutes"], 30)
         self.assertLessEqual(result["total_minutes"], 50)
@@ -171,7 +173,7 @@ class TestTransitEngine(unittest.TestCase):
         self.assertEqual(info_w_21["departure_station"], "恋ヶ窪")
         self.assertEqual(info_w_21["destination_station"], "北朝霞")
         self.assertEqual(info_w_21["departure_time"], "00:03")
-        self.assertEqual(info_w_21["arrival_time"], "00:45")
+        self.assertEqual(info_w_21["arrival_time"], "00:40")
         self.assertFalse(info_w_21["is_expired"])
         self.assertEqual(info_w_21["seconds_until_last_train"], 3 * 3600 + 3 * 60)
 
@@ -192,7 +194,7 @@ class TestTransitEngine(unittest.TestCase):
         info_h_21 = get_last_train_info("koigakubo_to_asakadai", now=now_holiday_21)
         self.assertEqual(info_h_21["destination_station"], "北朝霞")
         self.assertEqual(info_h_21["departure_time"], "23:40")
-        self.assertEqual(info_h_21["arrival_time"], "00:26")
+        self.assertEqual(info_h_21["arrival_time"], "00:22")
         self.assertFalse(info_h_21["is_expired"])
         self.assertEqual(info_h_21["seconds_until_last_train"], 2 * 3600 + 40 * 60)
 
@@ -204,21 +206,21 @@ class TestTransitEngine(unittest.TestCase):
 
     def test_last_train_asakadai_to_koigakubo(self):
         """北朝霞 ➡ 恋ヶ窪 終電ナビゲーションの判定テスト（平日・土休日双方の正確性検証）"""
-        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 北朝霞 23:30 発 ---
+        # --- 1. 平日ダイヤ（2026-09-18 金曜日）: 北朝霞 23:47 発 ---
         now_weekday_21 = datetime.datetime(2026, 9, 18, 21, 0, 0)
         info_w_21 = get_last_train_info("asakadai_to_koigakubo", now=now_weekday_21)
         self.assertEqual(info_w_21["departure_station"], "北朝霞")
         self.assertEqual(info_w_21["destination_station"], "恋ヶ窪")
-        self.assertEqual(info_w_21["departure_time"], "23:30")
+        self.assertEqual(info_w_21["departure_time"], "23:47")
         self.assertEqual(info_w_21["arrival_time"], "00:34")
         self.assertFalse(info_w_21["is_expired"])
-        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 30 * 60)
+        self.assertEqual(info_w_21["seconds_until_last_train"], 2 * 3600 + 47 * 60)
 
-        # 夜23:35のケース（運行終了）
-        now_w_2335 = datetime.datetime(2026, 9, 18, 23, 35, 0)
-        info_w_2335 = get_last_train_info("asakadai_to_koigakubo", now=now_w_2335)
-        self.assertTrue(info_w_2335["is_expired"])
-        self.assertEqual(info_w_2335["seconds_until_last_train"], 0)
+        # 夜23:50のケース（運行終了）
+        now_w_2350 = datetime.datetime(2026, 9, 18, 23, 50, 0)
+        info_w_2350 = get_last_train_info("asakadai_to_koigakubo", now=now_w_2350)
+        self.assertTrue(info_w_2350["is_expired"])
+        self.assertEqual(info_w_2350["seconds_until_last_train"], 0)
 
         # --- 2. 土休日ダイヤ（2026-09-20 日曜日 / 2026-09-21 敬老の日）: 北朝霞 23:15 発 ---
         now_holiday_21 = datetime.datetime(2026, 9, 21, 21, 0, 0)
@@ -489,13 +491,15 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.0 に統一され、説明表記が省略されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.2 に統一され、説明表記が省略されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("V4.0", content, "app.py に V4.0 が含まれている必要があります")
-        self.assertNotIn("Ver 4.0 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
-        self.assertNotIn("V4.0 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertIn("V4.2", content, "app.py に V4.2 が含まれている必要があります")
+        self.assertNotIn("Ver 4.2 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("V4.2 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("Ver 4.1", content, "app.py に古い Ver 4.1 が残っていてはいけません")
+        self.assertNotIn("Ver 4.0", content, "app.py に古い Ver 4.0 が残っていてはいけません")
         self.assertNotIn("Ver 3.9", content, "app.py に古い Ver 3.9 が残っていてはいけません")
         self.assertNotIn("V3.9", content, "app.py に古い V3.9 が残っていてはいけません")
         self.assertNotIn("Ver 3.8", content, "app.py に古い Ver 3.8 が残っていてはいけません")
@@ -808,13 +812,15 @@ class TestRevisionDetector(unittest.TestCase):
                 self.assertGreaterEqual(leg["wait_min"], 0)
 
     def test_no_exposed_code_blocks_in_markdown(self):
-        """【UI/UX Guard】app.py のマークダウン描画内に未意図のコードブロック（<pre><code>）化を招く4スペースインデントや生JSタグが混入していないことを検査"""
+        """【UI/UX Guard】app.py のマークダウン描画内に未意図のコードブロック（<pre><code>）化を招くインデント誤認や生JSタグが混入していないことを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertNotIn("<img onload=", content, "app.py に <img onload> による生JSハックが残っていてはいけません")
         self.assertNotIn("triggerNextTrainUpdate", content, "app.py にトリガー関数名が残っていてはいけません")
         self.assertNotIn("window.location.reload", content, "app.py に生ブラウザリロードスクリプトが残っていてはいけません")
+        # 土休日ダイヤバナーのCommonMarkインデント誤認（4スペース以上のインデント）防止検査
+        self.assertIn("banner_html = f\"<div style='display:flex; align-items:center;", content, "バナーHTMLは行頭インデントなしで定義されていること")
 
     def test_unauthenticated_screen_privacy(self):
         """【Privacy Guard】未認証画面において駅名（恋ヶ窪、朝霞台）や路線名などの個人特定情報が露出していないことを静的検査"""
