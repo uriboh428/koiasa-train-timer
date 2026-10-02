@@ -728,7 +728,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">V4.3</span>
+        <span class="version-tag">V4.4</span>
     </div>
 </div>
 """, unsafe_allow_html=True)

@@ -106,6 +106,21 @@ class TestTransitEngine(unittest.TestCase):
         self.assertIn("departure_timestamp_ms", result)
         self.assertGreater(result["departure_timestamp_ms"], 0)
 
+    def test_musashino_trains_exclusion(self):
+        """西国分寺駅を通過する『むさしの号（八王子行等）』が北朝霞発ダイヤから完全除外されていることの検証"""
+        from timetable_data import KITA_ASAKADAI_MUSASHINO_DOWN_WEEKDAY, KITA_ASAKADAI_MUSASHINO_DOWN_HOLIDAY
+
+        # 1. 平日: 20:44発のむさしの号が除外されていること（重要インシデント対策）
+        self.assertNotIn(44, KITA_ASAKADAI_MUSASHINO_DOWN_WEEKDAY.get(20, []), "平日20:44発（むさしの号八王子行）は除外必須")
+        # 平日9:04発、19:08発のむさしの号も除外されていること
+        self.assertNotIn(4, KITA_ASAKADAI_MUSASHINO_DOWN_WEEKDAY.get(9, []), "平日09:04発（むさしの号八王子行）は除外必須")
+        self.assertNotIn(8, KITA_ASAKADAI_MUSASHINO_DOWN_WEEKDAY.get(19, []), "平日19:08発（むさしの号八王子行）は除外必須")
+
+        # 2. 土休日: むさしの号（09:08, 18:34, 20:04）が除外されていること
+        self.assertNotIn(8, KITA_ASAKADAI_MUSASHINO_DOWN_HOLIDAY.get(9, []), "土休日09:08発（むさしの号八王子行）は除外必須")
+        self.assertNotIn(34, KITA_ASAKADAI_MUSASHINO_DOWN_HOLIDAY.get(18, []), "土休日18:34発（むさしの号八王子行）は除外必須")
+        self.assertNotIn(4, KITA_ASAKADAI_MUSASHINO_DOWN_HOLIDAY.get(20, []), "土休日20:04発（むさしの号八王子行）は除外必須")
+
     def test_default_direction_by_time(self):
         """時間帯に応じたデフォルト行き先自動判定（1:00-12:00恋ヶ窪発、12:01-24:59北朝霞発）の境界値検証"""
         # 1. 01:00 (朝の開始境界) -> 恋ヶ窪 ➡ 北朝霞
@@ -491,15 +506,15 @@ class TestRevisionDetector(unittest.TestCase):
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.3 に統一され、説明表記が省略されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.4 に統一され、説明表記が省略されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("V4.3", content, "app.py に V4.3 が含まれている必要があります")
-        self.assertNotIn("Ver 4.3 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
-        self.assertNotIn("V4.3 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
-        self.assertNotIn("Ver 4.2", content, "app.py に古い Ver 4.2 が残っていてはいけません")
-        self.assertNotIn("V4.2", content, "app.py に古い V4.2 が残っていてはいけません")
+        self.assertIn("V4.4", content, "app.py に V4.4 が含まれている必要があります")
+        self.assertNotIn("Ver 4.4 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("V4.4 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("Ver 4.3", content, "app.py に古い Ver 4.3 が残っていてはいけません")
+        self.assertNotIn("V4.3", content, "app.py に古い V4.3 が残っていてはいけません")
         self.assertNotIn("Ver 4.1", content, "app.py に古い Ver 4.1 が残っていてはいけません")
         self.assertNotIn("Ver 4.0", content, "app.py に古い Ver 4.0 が残っていてはいけません")
         self.assertNotIn("Ver 3.9", content, "app.py に古い Ver 3.9 が残っていてはいけません")
