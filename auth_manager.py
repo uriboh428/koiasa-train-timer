@@ -8,12 +8,14 @@ Cybersecurity CoE 基準:
 5. Streamlit Secrets (クラウド永続化) 完全連携
 """
 import os
+import re
 import json
 import time
 import math
 import hmac
 import hashlib
 import secrets
+import threading
 from typing import Optional, Tuple, Dict, Any
 
 AUTH_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "auth_config.json")
@@ -21,64 +23,106 @@ MAX_FAILED_ATTEMPTS = 5
 SEVERE_FAILED_ATTEMPTS = 10
 LOCKOUT_DURATION_SECONDS = 60
 SEVERE_LOCKOUT_DURATION_SECONDS = 300
+FAILURE_RESET_WINDOW_SECONDS = 1800  # 30分間失敗がなければ累積カウントをリセット
+ADMIN_SESSION_TIMEOUT_SECONDS = 900  # 管理者モードの自動ロック時間（15分）
 MIN_PASSWORD_LENGTH = 4
 PBKDF2_ITERATIONS = 100_000
+
+_SAFE_HOST_RE = re.compile(r"^[a-zA-Z0-9.-]+(?::[0-9]{1,5})?$")
+
+
+def _secure_write_json(filepath: str, data: Dict[str, Any]) -> None:
+    """認証設定ファイルを安全に書き込み、所有者のみのアクセス権限（0600）を設定"""
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    try:
+        os.chmod(filepath, 0o600)
+    except OSError:
+        pass
 
 
 class GlobalSecurityManager:
     """
-    全セッション・全ユーザー共有のレートリミッター
+    全セッション・全ユーザー共有のスレッドセーフ・レートリミッター
     段階的遅延（Backoff）と二段階ロックアウトにより総当たり攻撃を完全無力化
     """
     _instance = None
+    _instance_lock = threading.Lock()
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     def __init__(self):
+        self._lock = threading.Lock()
         self.failed_attempts = 0
         self.lock_until = 0.0
+        self.last_failed_at = 0.0
 
     def record_failure(self) -> Tuple[bool, int]:
         """失敗を記録し、段階的遅延（Backoff）を適用。制限超過時は二段階ロックアウト"""
         now = time.time()
-        self.failed_attempts += 1
-        # 人為的な段階的遅延（ブルートフォース攻撃を物理的に超低速化）
-        delay = min(2.0, self.failed_attempts * 0.4)
-        time.sleep(delay)
+        with self._lock:
+            # 長時間（30分以上）経過後の失敗はカウントを新しく開始
+            if (
+                self.last_failed_at > 0
+                and (now - self.last_failed_at) > FAILURE_RESET_WINDOW_SECONDS
+                and now >= self.lock_until
+            ):
+                self.failed_attempts = 0
 
-        if self.failed_attempts >= SEVERE_FAILED_ATTEMPTS:
-            self.lock_until = now + SEVERE_LOCKOUT_DURATION_SECONDS
-            return True, SEVERE_LOCKOUT_DURATION_SECONDS
-        elif self.failed_attempts >= MAX_FAILED_ATTEMPTS:
-            self.lock_until = now + LOCKOUT_DURATION_SECONDS
-            return True, LOCKOUT_DURATION_SECONDS
-        return False, 0
+            self.failed_attempts += 1
+            self.last_failed_at = now
+            delay = min(2.0, self.failed_attempts * 0.4)
+
+            if self.failed_attempts >= SEVERE_FAILED_ATTEMPTS:
+                self.lock_until = now + SEVERE_LOCKOUT_DURATION_SECONDS
+                res = (True, SEVERE_LOCKOUT_DURATION_SECONDS)
+            elif self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                self.lock_until = now + LOCKOUT_DURATION_SECONDS
+                res = (True, LOCKOUT_DURATION_SECONDS)
+            else:
+                res = (False, 0)
+
+        # 人為的な段階的遅延（ブルートフォース攻撃を物理的に超低速化）
+        time.sleep(delay)
+        return res
 
     def record_success(self):
         """成功時にカウンターを安全にリセット"""
-        self.failed_attempts = 0
-        self.lock_until = 0.0
+        with self._lock:
+            self.failed_attempts = 0
+            self.lock_until = 0.0
+            self.last_failed_at = 0.0
 
     def get_lockout_status(self) -> Tuple[bool, int]:
         """
         ロックアウト状態と残り秒数を判定
+        ※第1段階（60秒）ロック解除後も累積失敗回数を保持し、再度の失敗時に第2段階（300秒）へ確実に昇格させる
         :return: (is_locked, remaining_seconds)
         """
         now = time.time()
-        if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
-            if now < self.lock_until:
-                remaining = max(1, math.ceil(self.lock_until - now))
-                return True, remaining
-            else:
-                # ロックアウト期間経過により自動解除
-                self.failed_attempts = 0
-                self.lock_until = 0.0
-                return False, 0
-        return False, 0
+        with self._lock:
+            if self.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                if now < self.lock_until:
+                    remaining = max(1, math.ceil(self.lock_until - now))
+                    return True, remaining
+                else:
+                    # ロックアウト期間経過によりロック状態は解除
+                    # 第2段階（10回以上）完了後、または最終失敗から30分経過時のみカウンターを0に戻す
+                    if (
+                        self.failed_attempts >= SEVERE_FAILED_ATTEMPTS
+                        or (self.last_failed_at > 0 and (now - self.last_failed_at) > FAILURE_RESET_WINDOW_SECONDS)
+                    ):
+                        self.failed_attempts = 0
+                        self.lock_until = 0.0
+                        self.last_failed_at = 0.0
+                    return False, 0
+            return False, 0
 
 
 def hash_password(password: str, salt: Optional[str] = None) -> Tuple[str, str]:
@@ -319,8 +363,7 @@ def save_token_salt(token_salt: str) -> bool:
     data["token_salt"] = token_salt
     data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     try:
-        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        _secure_write_json(AUTH_CONFIG_FILE, data)
         return True
     except Exception:
         return False
@@ -390,10 +433,9 @@ def save_auth_credentials(
             "salt": u_s,  # 旧互換
             "token_salt": token_salt or secrets.token_hex(16),
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "version": "3.7"
+            "version": "4.5"
         }
-        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        _secure_write_json(AUTH_CONFIG_FILE, data)
         _sync_session_credentials(data)
         return True
     except Exception:
@@ -420,11 +462,10 @@ def update_user_password(new_user_password: str) -> bool:
         "salt": u_s,
         "token_salt": ts or secrets.token_hex(16),
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "version": "3.7"
+        "version": "4.5"
     }
     try:
-        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        _secure_write_json(AUTH_CONFIG_FILE, data)
         _sync_session_credentials(data)
         return True
     except Exception:
@@ -451,11 +492,10 @@ def update_admin_password(new_admin_password: str) -> bool:
         "salt": u_s,
         "token_salt": ts or secrets.token_hex(16),
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "version": "3.7"
+        "version": "4.5"
     }
     try:
-        with open(AUTH_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        _secure_write_json(AUTH_CONFIG_FILE, data)
         _sync_session_credentials(data)
         return True
     except Exception:
@@ -481,6 +521,11 @@ def check_lockout_status(attempts: Optional[int] = None, lock_until: Optional[fl
     return manager.get_lockout_status()
 
 
+def _escape_toml_str(val: str) -> str:
+    """TOML文字列インジェクション防止エスケープ"""
+    return str(val).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "").replace("\r", "")
+
+
 def get_secrets_toml_template(
     user_hash: str = "",
     user_salt: str = "",
@@ -488,26 +533,40 @@ def get_secrets_toml_template(
     admin_salt: str = "",
     token_salt: Optional[str] = None
 ) -> str:
-    """Streamlit Cloud Secrets に設定するTOML設定文字列を生成"""
-    res = f'# 一般ログイン用パスワード（ご家族向け）\nAPP_PASSWORD_HASH = "{user_hash}"\nAPP_PASSWORD_SALT = "{user_salt}"'
+    """Streamlit Cloud Secrets に設定するTOML設定文字列を生成（エスケープ保護済）"""
+    uh = _escape_toml_str(user_hash)
+    us = _escape_toml_str(user_salt)
+    res = f'# 一般ログイン用パスワード（ご家族向け）\nAPP_PASSWORD_HASH = "{uh}"\nAPP_PASSWORD_SALT = "{us}"'
     if admin_hash and admin_salt:
-        res += f'\n\n# 管理者専用マスターパスワード（管理者様専用）\nADMIN_PASSWORD_HASH = "{admin_hash}"\nADMIN_PASSWORD_SALT = "{admin_salt}"'
+        ah = _escape_toml_str(admin_hash)
+        a_s = _escape_toml_str(admin_salt)
+        res += f'\n\n# 管理者専用マスターパスワード（管理者様専用）\nADMIN_PASSWORD_HASH = "{ah}"\nADMIN_PASSWORD_SALT = "{a_s}"'
     if token_salt:
-        res += f'\n\n# 安全なワンタップ起動URL用暗号ソルト\nAPP_TOKEN_SALT = "{token_salt}"'
+        ts = _escape_toml_str(token_salt)
+        res += f'\n\n# 安全なワンタップ起動URL用暗号ソルト\nAPP_TOKEN_SALT = "{ts}"'
     return res
+
+
+def is_valid_host_header(host: str) -> bool:
+    """Hostヘッダーインジェクションを防ぐための厳格なホスト名検証"""
+    if not host or not isinstance(host, str) or len(host) > 253:
+        return False
+    if ".." in host or host.startswith(".") or host.startswith("-"):
+        return False
+    return bool(_SAFE_HOST_RE.match(host))
 
 
 def get_app_base_url() -> str:
     """
     現在のアクセス元ホスト名からアプリのベースURLを動的に決定する
-    Streamlit 1.30+ の st.context.headers を優先し、ローカル開発・本番Cloud問わず正しいURLを返す
+    Hostヘッダーの安全検証を行い、ローカル開発・本番Cloud問わず正しいURLを返す
     """
     try:
         import streamlit as st
         if hasattr(st, "context") and hasattr(st.context, "headers"):
             host = st.context.headers.get("host")
-            if host:
-                scheme = "http" if ("localhost" in host or "127.0.0.1" in host) else "https"
+            if host and is_valid_host_header(host):
+                scheme = "http" if (host.startswith("localhost") or host.startswith("127.0.0.1")) else "https"
                 return f"{scheme}://{host}"
     except Exception:
         pass
@@ -515,10 +574,11 @@ def get_app_base_url() -> str:
 
 
 def generate_token_link(token: str, base_url: Optional[str] = None) -> str:
-    """ワンタップ起動URLを動的に生成する"""
+    """ワンタップ起動URLを動的に生成する（トークン・URLサニタイズ済）"""
+    safe_token = re.sub(r"[^a-zA-Z0-9_-]", "", str(token or ""))
     if not base_url:
         base_url = get_app_base_url()
     if base_url:
-        return f"{base_url.rstrip('/')}/?token={token}"
-    return f"?token={token}"
+        return f"{base_url.rstrip('/')}/?token={safe_token}"
+    return f"?token={safe_token}"
 

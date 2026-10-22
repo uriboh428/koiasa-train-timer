@@ -488,6 +488,7 @@ class TestRevisionDetector(unittest.TestCase):
     def test_all_python_files_syntax_compilation(self):
         """【Quality Gate】全Pythonファイルの静的構文チェック（SyntaxError/f-string構文の全件検査）"""
         import py_compile
+        import tempfile
         project_dir = os.path.dirname(os.path.abspath(__file__))
         py_files = [
             "app.py",
@@ -498,25 +499,30 @@ class TestRevisionDetector(unittest.TestCase):
             "revision_detector.py",
             "sync_push.py",
         ]
-        for f in py_files:
-            target_path = os.path.join(project_dir, f)
-            if os.path.exists(target_path):
-                # doraise=True により構文エラー時は即座に PyCompileError 例外が飛ぶ
-                py_compile.compile(target_path, doraise=True)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for f in py_files:
+                target_path = os.path.join(project_dir, f)
+                if os.path.exists(target_path):
+                    cfile_path = os.path.join(tmpdir, f + "c")
+                    # doraise=True により構文エラー時は即座に PyCompileError 例外が飛ぶ
+                    py_compile.compile(target_path, cfile=cfile_path, doraise=True)
 
 
     def test_version_display_consistency(self):
-        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.4 に統一され、説明表記が省略されているかを検査"""
+        """【Version Governance】アプリ内のバージョン表記がシンプルな V4.5 に統一され、説明表記が省略されているかを検査"""
         app_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
         with open(app_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("V4.4", content, "app.py に V4.4 が含まれている必要があります")
-        self.assertNotIn("Ver 4.4 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
-        self.assertNotIn("V4.4 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertIn("V4.5", content, "app.py に V4.5 が含まれている必要があります")
+        self.assertNotIn("Ver 4.5 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("V4.5 (", content, "app.py にバージョンの説明表記（カッコ書き）が残っていてはいけません")
+        self.assertNotIn("V4.4", content, "app.py に古い V4.4 が残っていてはいけません")
+        self.assertNotIn("Ver 4.4", content, "app.py に古い Ver 4.4 が残っていてはいけません")
         self.assertNotIn("Ver 4.3", content, "app.py に古い Ver 4.3 が残っていてはいけません")
         self.assertNotIn("V4.3", content, "app.py に古い V4.3 が残っていてはいけません")
         self.assertNotIn("Ver 4.1", content, "app.py に古い Ver 4.1 が残っていてはいけません")
         self.assertNotIn("Ver 4.0", content, "app.py に古い Ver 4.0 が残っていてはいけません")
+        self.assertNotIn("V4.0", content, "app.py に古い V4.0 が残っていてはいけません")
         self.assertNotIn("Ver 3.9", content, "app.py に古い Ver 3.9 が残っていてはいけません")
         self.assertNotIn("V3.9", content, "app.py に古い V3.9 が残っていてはいけません")
         self.assertNotIn("Ver 3.8", content, "app.py に古い Ver 3.8 が残っていてはいけません")
@@ -531,6 +537,79 @@ class TestRevisionDetector(unittest.TestCase):
         self.assertNotIn("Ver 2.9", content, "app.py に古い Ver 2.9 が残っていてはいけません")
         self.assertNotIn("Ver 2.8", content, "app.py に古い Ver 2.8 が残っていてはいけません")
         self.assertNotIn("Ver 2.6", content, "app.py に古い Ver 2.6 が残っていてはいけません")
+
+    def test_security_xml_bomb_and_xxe_prevention(self):
+        """【Security】RSSのXML解析においてDOCTYPE/ENTITY宣言（XXE・XMLボム攻撃）が確実に遮断されることを検証"""
+        from revision_detector import safe_parse_rss_xml
+
+        # 正常なRSS XMLはパース成功すること
+        valid_xml = b'<?xml version="1.0"?><rss><channel><item><title>Test</title></item></channel></rss>'
+        root = safe_parse_rss_xml(valid_xml)
+        self.assertIsNotNone(root)
+
+        # Billion Laughs / XXE ペイロード（<!DOCTYPE / <!ENTITY）は例外で即座に遮断されること
+        xxe_payload = b'<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]><rss><channel></channel></rss>'
+        with self.assertRaises(ValueError):
+            safe_parse_rss_xml(xxe_payload)
+
+    def test_security_url_attribute_injection_blocked(self):
+        """【Security】URL検証においてクォート属性脱出や空白・ホスト欠落が確実に拒絶されることを検証"""
+        from transit_engine import is_safe_url
+        from revision_detector import is_valid_news_url
+
+        for validator in (is_safe_url, is_valid_news_url):
+            self.assertTrue(validator("https://www.jreast.co.jp/railway/"))
+            self.assertFalse(validator("https://evil.com/' onmouseover='alert(1)"))
+            self.assertFalse(validator('https://evil.com/" onload="alert(1)'))
+            self.assertFalse(validator("https://evil.com/<script>"))
+            self.assertFalse(validator("https:///no-host-path"))
+            self.assertFalse(validator("https://evil.com/path with spaces"))
+
+    def test_security_host_header_validation(self):
+        """【Security】Hostヘッダーインジェクション防止バリデーションの検証"""
+        from auth_manager import is_valid_host_header
+
+        self.assertTrue(is_valid_host_header("localhost:8501"))
+        self.assertTrue(is_valid_host_header("127.0.0.1:8501"))
+        self.assertTrue(is_valid_host_header("uriboh428-koiasa-train-timer-app-agpbgi.streamlit.app"))
+        self.assertFalse(is_valid_host_header('evil.com" onload="alert(1)'))
+        self.assertFalse(is_valid_host_header("evil.com/path"))
+        self.assertFalse(is_valid_host_header("..evil.com"))
+        self.assertFalse(is_valid_host_header(""))
+
+    def test_security_lockout_escalation_after_first_expiry(self):
+        """【Security】第1段階（60秒）ロック期間経過後も累積失敗数が保持され、再失敗時に第2段階（300秒）へ昇格することを検証"""
+        from auth_manager import GlobalSecurityManager, MAX_FAILED_ATTEMPTS, SEVERE_FAILED_ATTEMPTS, SEVERE_LOCKOUT_DURATION_SECONDS
+        mgr = GlobalSecurityManager.get_instance()
+        mgr.record_success()
+
+        # 5回失敗で第1段階ロック
+        for _ in range(MAX_FAILED_ATTEMPTS):
+            is_locked, _ = mgr.record_failure()
+        self.assertTrue(is_locked)
+        self.assertEqual(mgr.failed_attempts, MAX_FAILED_ATTEMPTS)
+
+        # 60秒経過したと仮定してロック状態を照会 -> ロックは解除されるが failed_attempts は5のまま保持されていること
+        mgr.lock_until = time.time() - 1.0
+        is_locked_after, _ = mgr.get_lockout_status()
+        self.assertFalse(is_locked_after, "60秒経過後はロック解除されること")
+        self.assertEqual(mgr.failed_attempts, MAX_FAILED_ATTEMPTS, "認証成功するまでは累積失敗カウントが保持されること")
+
+        # 続けて失敗を重ねると第2段階（300秒ロック）に確実に到達すること
+        for _ in range(SEVERE_FAILED_ATTEMPTS - MAX_FAILED_ATTEMPTS):
+            is_locked, lock_sec = mgr.record_failure()
+        self.assertTrue(is_locked)
+        self.assertEqual(lock_sec, SEVERE_LOCKOUT_DURATION_SECONDS)
+        mgr.record_success()
+
+    def test_security_streamlit_config_hardening(self):
+        """【Security】.streamlit/config.toml にてスタックトレース非表示・XSRF保護・不要な静的配信無効化が設定されているか検証"""
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".streamlit", "config.toml")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg_content = f.read()
+        self.assertIn("showErrorDetails = false", cfg_content)
+        self.assertIn("enableXsrfProtection = true", cfg_content)
+        self.assertIn("enableStaticServing = false", cfg_content)
 
     def test_departure_auto_advance_logic(self):
         """【Departure Transition】発車時刻（秒単位）経過後に次便へ自動繰り上がるロジックの検証"""

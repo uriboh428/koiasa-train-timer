@@ -29,6 +29,7 @@ from auth_manager import (
     generate_token_link,
     MAX_FAILED_ATTEMPTS,
     LOCKOUT_DURATION_SECONDS,
+    ADMIN_SESSION_TIMEOUT_SECONDS,
     MIN_PASSWORD_LENGTH,
 )
 
@@ -86,7 +87,7 @@ def get_revision_status() -> Dict[str, Any]:
             "has_alert": False,
             "badge_color": "#059669",
             "message": "現在適用中のダイヤグラムは最新です。",
-            "current_version": "2026年春季現行ダイヤ (2026-03-15改定)",
+            "current_version": TIMETABLE_VERSION,
             "announcements": [],
             "last_checked_jst": datetime.datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S"),
         }
@@ -121,7 +122,7 @@ st.markdown("""
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0,0" />
 <style>
     /* ==========================================================================
-       European Sunrise & Sunflower Design System (V4.0)
+       European Sunrise & Sunflower Design System (V4.5)
        Warm Modernism / European Human-Centered Spec (Copenhagen & Provence Sunrise)
        ========================================================================== */
     :root {
@@ -571,6 +572,8 @@ if credentials is None:
                 if save_auth_credentials(setup_user_pass, admin_p):
                     st.session_state["authenticated"] = True
                     st.session_state["is_admin"] = bool(admin_p)
+                    if admin_p:
+                        st.session_state["admin_authenticated_at"] = time.time()
                     sec_mgr.record_success()
                     st.success("✅ パスワードを設定しました。アプリを起動します...")
                     st.rerun()
@@ -586,14 +589,22 @@ if credentials is None:
 
 # B. パスワード設定済みの場合：セキュアトークンURL または URLパラメータ自動認証
 if credentials and not st.session_state["authenticated"]:
+    is_locked_now, _ = sec_mgr.get_lockout_status()
     # 1) 推測不能な暗号アクセストークンによる認証 (?token=...)
     query_token = st.query_params.get("token")
-    if query_token and verify_secure_token(str(query_token), credentials["salt"], credentials["hash"], credentials.get("token_salt")):
-        st.session_state["authenticated"] = True
-        st.session_state["is_admin"] = False
-        sec_mgr.record_success()
-        st.query_params.clear()
-        st.rerun()
+    if query_token:
+        if is_locked_now:
+            st.query_params.clear()
+        elif verify_secure_token(str(query_token), credentials["salt"], credentials["hash"], credentials.get("token_salt")):
+            st.session_state["authenticated"] = True
+            st.session_state["is_admin"] = False
+            sec_mgr.record_success()
+            st.query_params.clear()
+            st.rerun()
+        else:
+            sec_mgr.record_failure()
+            st.query_params.clear()
+            st.warning("⚠️ 無効または再発行により失効した共有URLです。最新の共有URLをご使用いただくか、パスワードを入力してログインしてください。")
 
     # 2) 平文パスワードURLパラメータの完全廃止（セキュリティ保護・漏洩防止）
     if st.query_params.get("pin") or st.query_params.get("pass"):
@@ -610,7 +621,7 @@ if not st.session_state["authenticated"]:
             <span class="material-symbols-outlined" style="font-size:32px; color:#FEF08A;">lock</span>
         </div>
         <h2 style="font-size:1.3rem; font-weight:900; color:#9A3412; margin:0 0 4px 0;">プライベート ダッシュボード</h2>
-        <div style="display:inline-block; background:#FEF3C7; border:1px solid #FCD34D; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#9A3412; margin-bottom:10px;">V4.0</div>
+        <div style="display:inline-block; background:#FEF3C7; border:1px solid #FCD34D; padding:2px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; color:#9A3412; margin-bottom:10px;">V4.5</div>
         <p style="font-size:0.8rem; color:#78716C; margin:0 0 16px 0;">このアプリは非公開設定されています。<br>ご利用にはパスワードが必要です。</p>
     </div>
     """, unsafe_allow_html=True)
@@ -638,6 +649,7 @@ if not st.session_state["authenticated"]:
                 # 管理者パスワードで直接ログインした場合は管理者権限も有効化
                 if verify_admin_access(input_pass, credentials):
                     st.session_state["is_admin"] = True
+                    st.session_state["admin_authenticated_at"] = time.time()
                 else:
                     st.session_state["is_admin"] = False
                 sec_mgr.record_success()
@@ -645,9 +657,9 @@ if not st.session_state["authenticated"]:
             else:
                 is_now_locked, lock_duration = sec_mgr.record_failure()
                 if is_now_locked:
-                    st.error(f"❌ 誤ったパスワードが{MAX_FAILED_ATTEMPTS}回連続で入力されました。ブルートフォース攻撃防止のため、アプリ全体を{LOCKOUT_DURATION_SECONDS}秒間ロックします。")
+                    st.error(f"❌ 誤ったパスワードが{MAX_FAILED_ATTEMPTS}回連続で入力されました。ブルートフォース攻撃防止のため、アプリ全体を{lock_duration}秒間ロックします。")
                 else:
-                    remain_tries = MAX_FAILED_ATTEMPTS - sec_mgr.failed_attempts
+                    remain_tries = max(1, MAX_FAILED_ATTEMPTS - (sec_mgr.failed_attempts % MAX_FAILED_ATTEMPTS))
                     st.error(f"❌ パスワードが違います。（残り試行可能回数: {remain_tries}回）")
 
     st.markdown("""
@@ -656,6 +668,14 @@ if not st.session_state["authenticated"]:
     </div>
     """, unsafe_allow_html=True)
     st.stop()
+
+# 【管理者セッション自動タイムアウト保護】
+# 管理者モード解除後、一定時間（15分）経過した場合は自動的に一般モード（ロック状態）へ降格
+if st.session_state.get("is_admin", False):
+    admin_auth_at = st.session_state.get("admin_authenticated_at", 0.0)
+    if not admin_auth_at or (time.time() - admin_auth_at) > ADMIN_SESSION_TIMEOUT_SECONDS:
+        st.session_state["is_admin"] = False
+        st.session_state.pop("admin_authenticated_at", None)
 
 # 日本標準時（JST）の現在時刻
 now_jst = datetime.datetime.now(JST)
@@ -728,7 +748,7 @@ st.markdown(f"""
             <span class="pulse-dot"></span>
             <span class="live-clock-text" id="global-clock-display">{current_time_str}</span>
         </div>
-        <span class="version-tag">V4.4</span>
+        <span class="version-tag">V4.5</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -872,6 +892,12 @@ def render_hero_timer_fragment(
 
     clock_str = f"{now_dt.hour:02d}:{now_dt.minute:02d}:{now_dt.second:02d}"
 
+    safe_dept_st = escape_text(dept_station)
+    safe_arrv_st = escape_text(arrv_station)
+    safe_dept_t = escape_text(dept_time)
+    safe_arrv_t = escape_text(arrv_time)
+    safe_last_t = escape_text(last_train_dept)
+
     html_snippet = f"""<div class="hero-timer-card">
     <div class="hero-timer-header">
         <span class="hero-micro-label">⏱️ 次の発車まで</span>
@@ -884,11 +910,11 @@ def render_hero_timer_fragment(
     </div>
     <div class="hero-schedule-bar">
         <div class="hero-st-block">
-            <div class="hero-st-name">{dept_station} 発</div>
-            <div class="hero-st-time">{dept_time}</div>
+            <div class="hero-st-name">{safe_dept_st} 発</div>
+            <div class="hero-st-time">{safe_dept_t}</div>
         </div>
         <div class="hero-arrow-block">
-            <div class="hero-duration-badge">約{total_minutes}分</div>
+            <div class="hero-duration-badge">約{int(total_minutes)}分</div>
             <div style="display:flex; align-items:center; justify-content:center; margin-top:2px;">
                 <svg width="24" height="13" viewBox="0 0 24 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));">
                     <path d="M1 6.5H21M21 6.5L15.5 1.5M21 6.5L15.5 11.5" stroke="#FEF08A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -896,13 +922,13 @@ def render_hero_timer_fragment(
             </div>
         </div>
         <div class="hero-st-block" style="text-align:right;">
-            <div class="hero-st-name">{arrv_station} 着</div>
-            <div class="hero-st-time arrival">{arrv_time}</div>
+            <div class="hero-st-name">{safe_arrv_st} 着</div>
+            <div class="hero-st-time arrival">{safe_arrv_t}</div>
         </div>
     </div>
     <div class="hero-last-train-row">
         <span class="hero-last-train-label">🌙 今夜の最終便案内</span>
-        <span class="hero-last-train-val">{dept_station} <span style="color:#FEF08A; font-weight:900;">{last_train_dept}</span> 発（所要 <span style="color:#FEF08A; font-weight:800;">{last_train_duration}分</span>）</span>
+        <span class="hero-last-train-val">{safe_dept_st} <span style="color:#FEF08A; font-weight:900;">{safe_last_t}</span> 発（所要 <span style="color:#FEF08A; font-weight:800;">{int(last_train_duration)}分</span>）</span>
     </div>
 </div>"""
     st.markdown(html_snippet, unsafe_allow_html=True)
@@ -1096,7 +1122,8 @@ if revision_info.get("has_alert"):
         t = escape_text(ann.get("title", ""))
         l = ann.get("link", "")
         d = escape_text(ann.get("pub_date_display", ""))
-        link_tag = f"<a href='{l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:600;'>{t}</a>" if is_safe_url(l) else t
+        safe_l = escape_text(l)
+        link_tag = f"<a href='{safe_l}' target='_blank' rel='noopener noreferrer' style='color:#C2410C; font-weight:600;'>{t}</a>" if is_safe_url(l) else t
         announcements_html += f"<div style='font-size:0.72rem; margin-top:2px;'>・{link_tag} ({d})</div>"
 
     st.markdown(f"""
@@ -1121,7 +1148,8 @@ with st.expander("🚆 路線運行情報（各社公式リアルタイム速報
             st.markdown(f"<div style='font-size:0.82rem; font-weight:700; color:#0F172A; padding:4px 0;'>{escape_text(line['name'])} <span style='font-size:0.7rem; color:#64748B; font-weight:500;'>({escape_text(line['operator'])})</span></div>", unsafe_allow_html=True)
         with col_link:
             if is_safe_url(line['url']):
-                st.markdown(f"<a href='{line['url']}' target='_blank' rel='noopener noreferrer' style='display:inline-block; width:100%; text-align:center; background:#F8FAFC; border:1px solid #CBD5E1; color:#0284C7; font-size:0.75rem; font-weight:600; padding:4px 8px; border-radius:8px; text-decoration:none;'>公式情報 ↗</a>", unsafe_allow_html=True)
+                safe_line_url = escape_text(line['url'])
+                st.markdown(f"<a href='{safe_line_url}' target='_blank' rel='noopener noreferrer' style='display:inline-block; width:100%; text-align:center; background:#F8FAFC; border:1px solid #CBD5E1; color:#0284C7; font-size:0.75rem; font-weight:600; padding:4px 8px; border-radius:8px; text-decoration:none;'>公式情報 ↗</a>", unsafe_allow_html=True)
 
 # ==========================================
 # 管理者専用エリア（ロール保護・完全分離設計）
@@ -1130,10 +1158,11 @@ if st.session_state.get("is_admin", False):
     with st.expander("🛠️ 管理者メニュー（管理者認証済み 🔓）", expanded=False):
         col_adm_head1, col_adm_head2 = st.columns([3, 2])
         with col_adm_head1:
-            st.markdown("<div style='font-size:0.75rem; color:#059669; font-weight:700; padding:6px 0;'>🔓 管理者権限でロック解除中</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:0.75rem; color:#059669; font-weight:700; padding:6px 0;'>🔓 管理者権限でロック解除中（15分自動保護）</div>", unsafe_allow_html=True)
         with col_adm_head2:
             if st.button("🔒 管理者モード終了", key="btn_exit_admin_top", use_container_width=True, help="一般画面に戻します（管理メニューを隠します）"):
                 st.session_state["is_admin"] = False
+                st.session_state.pop("admin_authenticated_at", None)
                 st.rerun()
 
         # パスワード変更完了時の即時案内メッセージ
@@ -1159,6 +1188,7 @@ if st.session_state.get("is_admin", False):
                     st.error("❌ 再確認用パスワードが一致しません。")
                 else:
                     if update_user_password(new_u_pwd):
+                        st.session_state["admin_authenticated_at"] = time.time()
                         st.session_state["user_pwd_updated_notice"] = True
                         st.rerun()
                     else:
@@ -1175,13 +1205,22 @@ if st.session_state.get("is_admin", False):
 
             if update_a_btn:
                 if not credentials or not verify_admin_access(cur_a_pwd, credentials):
-                    st.error("❌ 現在の管理者パスワードが正しくありません。")
+                    is_now_locked, lock_duration = sec_mgr.record_failure()
+                    if is_now_locked:
+                        st.session_state["is_admin"] = False
+                        st.session_state.pop("admin_authenticated_at", None)
+                        st.error(f"❌ 認証失敗が規定回数に達したため、セキュリティ保護により{lock_duration}秒間ロックしました。")
+                        st.rerun()
+                    else:
+                        st.error("❌ 現在の管理者パスワードが正しくありません。")
                 elif len(new_a_pwd) < MIN_PASSWORD_LENGTH:
                     st.error(f"❌ 新しいパスワードは{MIN_PASSWORD_LENGTH}文字以上で指定してください。")
                 elif new_a_pwd != new_a_pwd_conf:
                     st.error("❌ 新しい管理者パスワードの再確認が一致しません。")
                 else:
                     if update_admin_password(new_a_pwd):
+                        sec_mgr.record_success()
+                        st.session_state["admin_authenticated_at"] = time.time()
                         st.session_state["admin_pwd_updated_notice"] = True
                         st.rerun()
                     else:
@@ -1196,6 +1235,7 @@ if st.session_state.get("is_admin", False):
             st.markdown("<p style='font-size:0.73rem; color:#78716C; margin-bottom:6px;'>ご家族に共有するための専用URLです。パスワード入力不要で安全に起動できます。</p>", unsafe_allow_html=True)
 
             init_display_url = dynamic_url if dynamic_url.startswith("http") else f"?token={token}"
+            safe_display_url = escape_text(init_display_url)
 
             iframe_html = f"""
             <!DOCTYPE html>
@@ -1262,7 +1302,7 @@ if st.session_state.get("is_admin", False):
             </head>
             <body>
             <div class="wrap">
-                <input type="text" id="targetUrl" readonly value="{init_display_url}" />
+                <input type="text" id="targetUrl" readonly value="{safe_display_url}" />
                 <button id="copyBtn" onclick="execCopy()">📋 コピー</button>
             </div>
             <div id="toastMsg" class="toast">✅ クリップボードにコピーしました！ご家族のLINE等に貼り付けてください。</div>
@@ -1308,6 +1348,7 @@ if st.session_state.get("is_admin", False):
             # ワンタップURLの即時再発行・失効ボタン
             if st.button("🔄 共有URLを再発行（古いURLを無効化）", key="btn_regen_token", use_container_width=True, help="万が一の誤送信時などに、古いURLを即座に使えなくして新しいURLを発行します"):
                 regenerate_secure_token()
+                st.session_state["admin_authenticated_at"] = time.time()
                 st.success("✅ 新しい共有URLを発行しました！これまでの古いURLはすべて無効化されました。")
                 st.rerun()
 
@@ -1335,20 +1376,31 @@ if st.session_state.get("is_admin", False):
                 st.rerun()
 
 else:
-    # ご家族（一般モード）向け：危険な管理操作は完全非表示
+    # ご家族（一般モード）向け：危険な管理操作は完全非表示（総当たり防御連動済）
     with st.expander("🔒 管理者メニュー（パスワード認証）", expanded=False):
+        is_adm_locked, adm_rem_sec = sec_mgr.get_lockout_status()
+        if is_adm_locked:
+            st.error(f"🚫 セキュリティ保護のため認証が一時ロックされています。あと **{adm_rem_sec}秒** 後に再試行してください。", icon="🔒")
+
         st.markdown("<p style='font-size:0.75rem; color:#64748B; margin-bottom:8px;'>パスワード変更や共有URLの管理を行うには、管理者用マスターパスワードを入力してください。</p>", unsafe_allow_html=True)
         with st.form("admin_unlock_form", clear_on_submit=True):
-            admin_input = st.text_input("管理者パスワード", type="password", placeholder="管理者専用パスワードを入力")
-            admin_submit = st.form_submit_button("認証してロック解除 🔓", use_container_width=True, type="primary")
+            admin_input = st.text_input("管理者パスワード", type="password", placeholder="管理者専用パスワードを入力", disabled=is_adm_locked)
+            admin_submit = st.form_submit_button("認証してロック解除 🔓", use_container_width=True, type="primary", disabled=is_adm_locked)
 
-            if admin_submit:
+            if admin_submit and not is_adm_locked:
                 if credentials and verify_admin_access(admin_input, credentials):
                     st.session_state["is_admin"] = True
+                    st.session_state["admin_authenticated_at"] = time.time()
+                    sec_mgr.record_success()
                     st.success("✅ 管理者認証に成功しました！")
                     st.rerun()
                 else:
-                    st.error("❌ 管理者パスワードが正しくありません。（一般ログインパスワードでは解除できません）")
+                    now_locked, lock_dur = sec_mgr.record_failure()
+                    if now_locked:
+                        st.error(f"❌ 誤った管理者パスワードが規定回数入力されました。ブルートフォース攻撃防止のため、{lock_dur}秒間ロックします。")
+                    else:
+                        remain_tries = max(1, MAX_FAILED_ATTEMPTS - (sec_mgr.failed_attempts % MAX_FAILED_ATTEMPTS))
+                        st.error(f"❌ 管理者パスワードが正しくありません。（一般ログインパスワードでは解除できません / 残り試行可能回数: {remain_tries}回）")
 
 st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 col_act1, col_act2 = st.columns([1, 1])
@@ -1360,12 +1412,13 @@ with col_act2:
     if st.button("🔒 画面ロック (ログアウト)", key="btn_logout_footer", use_container_width=True, help="アプリを即座にロックしてパスワード入力画面に戻します"):
         st.session_state["authenticated"] = False
         st.session_state["is_admin"] = False
+        st.session_state.pop("admin_authenticated_at", None)
         st.cache_data.clear()
         st.rerun()
 
 st.markdown(f"""
 <div style="text-align:center; color:#A8A29E; font-size:0.68rem; margin-top:16px; letter-spacing:0.02em; line-height:1.6;">
-    KOIASA TRANSIT SYSTEM V4.0 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', '2026年春季現行ダイヤ'))}<br>
+    KOIASA TRANSIT SYSTEM V4.5 ｜ 収録ダイヤ: {escape_text(revision_info.get('current_version', TIMETABLE_VERSION))}<br>
     <span style="font-size:0.62rem; color:#D6D3D1;">※本アプリは所定時刻表に基づき計算しています。遅延・運休情報は各社公式リンクをご確認ください。</span>
 </div>
 """, unsafe_allow_html=True)

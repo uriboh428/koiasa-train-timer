@@ -14,7 +14,10 @@ from typing import Dict, Any, List, Optional
 # 日本標準時（JST: UTC+9）
 JST = datetime.timezone(datetime.timedelta(hours=9))
 
-CURRENT_TIMETABLE_VERSION = "2026年春季現行ダイヤ (2026-03-15改定)"
+try:
+    from timetable_data import TIMETABLE_VERSION as CURRENT_TIMETABLE_VERSION
+except Exception:
+    CURRENT_TIMETABLE_VERSION = "2026年秋季現行ダイヤ (JR東日本＆西武鉄道公式 2026-10最新ダイヤ反映 / むさしの号通過除外済)"
 CURRENT_TIMETABLE_DATE = datetime.date(2026, 3, 15)
 
 RELEVANT_KEYWORDS = ["ダイヤ改正", "時刻改正", "ダイヤ変更", "時刻変更", "減便", "増便", "終電繰り上げ", "新ダイヤ"]
@@ -31,14 +34,38 @@ def parse_pub_date(date_str: str) -> Optional[datetime.datetime]:
 MAX_RSS_BYTES = 512 * 1024  # 512 KB 上限（巨大ペイロード拒絶）
 
 def is_valid_news_url(url: str) -> bool:
-    """リンクURLの安全プロトコル検証（javascript:, data: 等の攻撃スキームを完全遮断）"""
-    if not url:
+    """リンクURLの安全プロトコル・構文検証（javascript:, data:, 属性インジェクション等を完全遮断）"""
+    if not url or not isinstance(url, str) or len(url) > 2048:
+        return False
+    if any(c in url for c in ("<", ">", '"', "'")) or any(ord(c) <= 32 for c in url):
         return False
     try:
         parsed = urllib.parse.urlparse(url)
-        return parsed.scheme in ("http", "https")
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
     except Exception:
         return False
+
+
+def safe_parse_rss_xml(xml_data: bytes) -> ET.Element:
+    """
+    XXE（XML外部実体参照）およびXMLボム（Billion Laughs攻撃）を完全に遮断する安全なXMLパーサー
+    DOCTYPE宣言やENTITY宣言を含む悪意あるXMLペイロードをパース前に拒絶する
+    """
+    if not isinstance(xml_data, (bytes, bytearray)) or len(xml_data) > MAX_RSS_BYTES:
+        raise ValueError("XML payload exceeds maximum allowed size or invalid type")
+    lower_head = bytes(xml_data).lower()
+    if b"<!doctype" in lower_head or b"<!entity" in lower_head:
+        raise ValueError("Unsafe XML declaration (DOCTYPE/ENTITY) blocked for security")
+    return ET.fromstring(xml_data)
+
+
+class _SafeHTTPSRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """SSRF・不正リダイレクト防止：httpsスキームかつ安全な公開URLへのリダイレクトのみ許可"""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not is_valid_news_url(newurl) or not newurl.startswith("https://"):
+            raise urllib.error.HTTPError(newurl, 403, "Unsafe redirect blocked", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
 
 def fetch_timetable_news(timeout: float = 3.0) -> List[Dict[str, Any]]:
     """
@@ -55,10 +82,11 @@ def fetch_timetable_news(timeout: float = 3.0) -> List[Dict[str, Any]]:
 
     items_result = []
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        opener = urllib.request.build_opener(_SafeHTTPSRedirectHandler())
+        with opener.open(req, timeout=timeout) as resp:
             # 512KBを超えるデータは読み込まずに遮断（DoS攻撃・メモリ枯渇防止）
             xml_data = resp.read(MAX_RSS_BYTES)
-            root = ET.fromstring(xml_data)
+            root = safe_parse_rss_xml(xml_data)
             items = root.findall(".//item")
 
             for item in items:

@@ -24,17 +24,22 @@ def get_timestamp_ms(dt: datetime.datetime) -> int:
     return int(dt.timestamp() * 1000)
 
 def escape_text(text: object) -> str:
-    """XSS防止のためのHTML特殊文字エスケープ"""
+    """XSS防止のためのHTML特殊文字エスケープ（クォート属性値も含め完全無害化）"""
     if text is None:
         return ""
-    return html.escape(str(text))
+    return html.escape(str(text), quote=True)
 
 def is_safe_url(url: str) -> bool:
-    """外部リンクの安全プロトコル検証（http/https限定）"""
-    if not url:
+    """外部リンクの安全プロトコル・構文検証（http/https限定・属性インジェクション遮断）"""
+    if not url or not isinstance(url, str) or len(url) > 2048:
         return False
-    parsed = urllib.parse.urlparse(url)
-    return parsed.scheme in ("http", "https")
+    if any(c in url for c in ("<", ">", '"', "'")) or any(ord(c) <= 32 for c in url):
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    except Exception:
+        return False
 
 def get_default_direction(now: Optional[datetime.datetime] = None) -> str:
     """
